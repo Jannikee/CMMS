@@ -1,0 +1,50 @@
+"""
+ 
+"""
+#Imports all the core components that will be initialized in the create_app() function 
+import os
+from flask import Flask
+from flask_cors import CORS
+from flask_jwt_extended import JWTManager
+from backend.database import db
+from backend.config import Config
+from backend.api. import rcm_bp
+
+def create_app(config_class=Config):
+    
+    app = Flask(__name__)
+    app.config.from_object(config_class)
+
+    
+    # Initialize extensions
+    db.init_app(app)
+    jwt = JWTManager(app)
+    CORS(app)
+
+    # Ensure upload directory exists
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    
+    # Register blueprints, Blueprints are Flask's way of organizing related routes and functionality
+    from backend.api.auth import auth_bp
+    from backend.api.work_orders import work_orders_bp
+    from backend.api.machines import machines_bp
+    from backend.api.maintenance import maintenance_bp
+    from backend.api.reports import reports_bp
+    
+    app.register_blueprint(auth_bp, url_prefix='/api/auth')
+    app.register_blueprint(work_orders_bp, url_prefix='/api/work-orders')
+    app.register_blueprint(machines_bp, url_prefix='/api/machines')
+    app.register_blueprint(maintenance_bp, url_prefix='/api/maintenance')
+    app.register_blueprint(reports_bp, url_prefix='/api/reports')
+    
+    # Create database tables
+    with app.app_context():
+        db.create_all()
+    
+    return app
+
+    @jwt.token_verification_failed_callback
+    def token_verification_failed_callback(jwt_header, jwt_payload):
+        print(f"JWT Verification Failed: {jwt_header} - Payload: {jwt_payload}")
+        return jsonify({"message": "Token verification failed"}), 422
+    

@@ -1,0 +1,8 @@
+# ignore virtual enviroment
+venv/
+
+# Ignore backend-specific files
+/path/to/backend/node_modules/
+*.pyc
+__pycache__/
+
