@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import WorkOrderItem from '../components/WorkOrderItems.js';
 import { fetchWorkOrders } from '../services/api';
+import { Checkbox } from 'react-native-paper';
+import { Ionicons } from '@expo/vector-icons';
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -39,6 +41,138 @@ function DailyMaintenanceScreen() {
     </ScrollView>
   );
 }
+  /*
+export default function DailyMaintenanceScreen() {
+  // Mock data - replace with API call to your Flask backend later  
+  const workOrders = [
+    {
+      id: 1,
+      title: 'Rengjør tuben over isbitformen',
+      type: 'Rengjøring',
+      location: 'Isbitmaskin',
+      completed: false,
+    },
+    {
+      id: 2,
+      title: 'Ta temperaturen på frysern',
+      type: 'Måling',
+      location: 'Fryseren',
+      completed: false,
+    },
+    {
+      id: 3,
+      title: 'Rengjør tuben over isbitformen',
+      type: 'Rengjøring',
+      location: 'Isbitmaskin',
+      completed: false,
+    },
+    {
+      id: 4,
+      title: 'Rengjør tuben over isbitformen',
+      type: 'Rengjøring',
+      location: 'Isbitmaskin',
+      completed: false,
+    },
+    {
+      id: 5,
+      title: 'Rengjør tuben over isbitformen',
+      type: 'Rengjøring',
+      location: 'Isbitmaskin',
+      completed: false,
+    },
+  ];
+
+  // Function to toggle work order completion
+  const toggleComplete = (id) => {
+    // In a real app, you would update the state and call API
+    console.log(`Toggled work order ${id}`);
+  };
+
+    return (
+    <ScrollView style={styles.container}>
+      {workOrders.map(workOrder => (
+        <View key={workOrder.id} style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>{workOrder.title}</Text>
+            <Ionicons name="information-circle-outline" size={24} color="#5D6271" />
+          </View>
+          
+          <View style={styles.cardContent}>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Type</Text>
+              <Text style={styles.infoValue}>{workOrder.type}</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Lokasjon</Text>
+              <Text style={styles.infoValue}>{workOrder.location}</Text>
+            </View>
+          </View>
+          
+          <View style={styles.cardFooter}>
+            <Checkbox.Android
+              status={workOrder.completed ? 'checked' : 'unchecked'}
+              onPress={() => toggleComplete(workOrder.id)}
+              color="#5D6271"
+            />
+          </View>
+        </View>
+      ))}
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F7FA',
+    padding: 16,
+  },
+  card: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    flex: 1,
+    color: '#333',
+  },
+  cardContent: {
+    marginBottom: 8,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+  infoLabel: {
+    width: 80,
+    fontSize: 14,
+    color: '#666',
+  },
+  infoValue: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
+  cardFooter: {
+    alignItems: 'flex-end',
+  },
+});
+  */
+
 
 function PeriodicMaintenanceScreen() {
   // Similar to DailyMaintenanceScreen but for periodic work orders

@@ -5,11 +5,13 @@ from flask import Blueprint, request, jsonify, send_file
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from backend.models.user import User
 from backend.services.statistics import MaintenanceStatistics
+from backend.services.export_service import ExportService
 from backend.services.reporting import ReportGenerator
 from datetime import datetime, timedelta, timezone
 import json
 
 reports_bp = Blueprint('reports', __name__)
+
 
 @reports_bp.route('/failure-rates', methods=['GET'])
 @jwt_required()
@@ -189,3 +191,102 @@ def get_dashboard_summary():
     }
     
     return jsonify(dashboard_summary=dashboard_summary)
+# For excel
+@reports_bp.route('/export/work-orders', methods=['GET'])
+@jwt_required()
+def export_work_orders():
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    
+    # Only supervisors and admins can export data
+    if user.role not in ['supervisor', 'admin']:
+        return jsonify(message="Unauthorized"), 403
+    
+    # Get filter parameters
+    machine_id = request.args.get('machine_id', type=int)
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+    
+    # Parse dates if provided
+    start_date = datetime.fromisoformat(start_date_str) if start_date_str else None
+    end_date = datetime.fromisoformat(end_date_str) if end_date_str else None
+    
+    # Generate Excel file
+    excel_file = ExportService.export_work_orders(machine_id, start_date, end_date)
+    
+    # Generate filename
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f"work_orders_{timestamp}.xlsx"
+    
+    return send_file(
+        excel_file,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        download_name=filename,
+        as_attachment=True
+    )
+
+@reports_bp.route('/export/maintenance-logs', methods=['GET'])
+@jwt_required()
+def export_maintenance_logs():
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    
+    # Only supervisors and admins can export data
+    if user.role not in ['supervisor', 'admin']:
+        return jsonify(message="Unauthorized"), 403
+    
+    # Get filter parameters
+    machine_id = request.args.get('machine_id', type=int)
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+    
+    # Parse dates if provided
+    start_date = datetime.fromisoformat(start_date_str) if start_date_str else None
+    end_date = datetime.fromisoformat(end_date_str) if end_date_str else None
+    
+    # Generate Excel file
+    excel_file = ExportService.export_maintenance_logs(machine_id, start_date, end_date)
+    
+    # Generate filename
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f"maintenance_logs_{timestamp}.xlsx"
+    
+    return send_file(
+        excel_file,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        download_name=filename,
+        as_attachment=True
+    )
+
+@reports_bp.route('/export/statistics', methods=['GET'])
+@jwt_required()
+def export_statistics():
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    
+    # Only supervisors and admins can export data
+    if user.role not in ['supervisor', 'admin']:
+        return jsonify(message="Unauthorized"), 403
+    
+    # Get filter parameters
+    machine_id = request.args.get('machine_id', type=int)
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+    
+    # Parse dates if provided
+    start_date = datetime.fromisoformat(start_date_str) if start_date_str else None
+    end_date = datetime.fromisoformat(end_date_str) if end_date_str else None
+    
+    # Generate Excel file
+    excel_file = ExportService.export_statistics_report(machine_id, start_date, end_date)
+    
+    # Generate filename
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f"maintenance_statistics_{timestamp}.xlsx"
+    
+    return send_file(
+        excel_file,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        download_name=filename,
+        as_attachment=True
+    )
