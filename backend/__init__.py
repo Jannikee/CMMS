@@ -1,14 +1,15 @@
 """
  
 """
-#Imports all the core components that will be initialized in the create_app() function 
+#Imports all the core components that will be initialized in the create_app() function
+# This part is Heavily made with Ai assitance, as I am not so comfortable with flask 
 import os
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from backend.database import db
 from backend.config import Config
-from backend.api. import rcm_bp
+from backend.api.rcm import rcm_bp
 
 def create_app(config_class=Config):
     
@@ -35,7 +36,14 @@ def create_app(config_class=Config):
     app.register_blueprint(work_orders_bp, url_prefix='/api/work-orders')
     app.register_blueprint(machines_bp, url_prefix='/api/machines')
     app.register_blueprint(maintenance_bp, url_prefix='/api/maintenance')
+    app.register_blueprint(rcm_bp, url_prefix='/api/rcm')
     app.register_blueprint(reports_bp, url_prefix='/api/reports')
+
+    #add jwt callbacks
+    @jwt.token_verification_failed_callback
+    def token_verification_failed_callback(jwt_header, jwt_payload):
+        print(f"JWT Verification Failed: {jwt_header} - Payload: {jwt_payload}")
+        return jsonify({"message": "Token verification failed"}), 422
     
     # Create database tables
     with app.app_context():
@@ -43,8 +51,4 @@ def create_app(config_class=Config):
     
     return app
 
-    @jwt.token_verification_failed_callback
-    def token_verification_failed_callback(jwt_header, jwt_payload):
-        print(f"JWT Verification Failed: {jwt_header} - Payload: {jwt_payload}")
-        return jsonify({"message": "Token verification failed"}), 422
     

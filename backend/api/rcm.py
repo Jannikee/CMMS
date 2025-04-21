@@ -4,6 +4,9 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from backend.models.rcm import RCMFunction, RCMFunctionalFailure, RCMFailureMode, RCMFailureEffect, RCMMaintenance
 from backend.models.user import User
 from backend.database import db
+import os
+from werkzeug.utils import secure_filename
+from flask import current_app
 
 rcm_bp = Blueprint('rcm', __name__)
 
@@ -230,3 +233,62 @@ def generate_work_orders():
     
     except Exception as e:
         return jsonify(message=f"Failed to generate work orders: {str(e)}"), 500
+
+# Add file upload endpoint
+@rcm_bp.route('/upload-excel', methods=['POST'])
+@jwt_required()
+def upload_excel():
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    
+    # Only supervisors and admins can import RCM data
+    if user.role not in ['supervisor', 'admin']:
+        return jsonify(message="Unauthorized"), 403
+    
+    if 'file' not in request.files:
+        return jsonify(message="No file part"), 400
+        
+    file = request.files['file']
+    
+    if file.filename == '':
+        return jsonify(message="No selected file"), 400
+        
+    equipment_id = request.form.get('equipment_id')
+    if not equipment_id:
+        return jsonify(message="Equipment ID is required"), 400
+    
+    try:
+        equipment_id = int(equipment_id)
+    except ValueError:
+        return jsonify(message="Invalid equipment ID"), 400
+    
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+        file.save(file_path)
+        
+        try:
+            from backend.services.import_service import RCMImportService
+            
+            result = RCMImportService.import_from_excel(file_path, equipment_id)
+            
+            # Optionally delete the file after import
+            os.remove(file_path)
+            
+            return jsonify(
+                message="Excel file imported successfully",
+                imported=result
+            ), 201
+            
+        except Exception as e:
+            # Clean up file in case of error
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                
+            return jsonify(message=f"Error importing file: {str(e)}"), 500
+    
+    return jsonify(message="Invalid file format"), 400
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in {'xlsx', 'xls'}

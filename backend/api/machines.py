@@ -3,7 +3,7 @@ Machine management
 """
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from backend.models.machine import Machine, Component
+from backend.models.machine import Machine,Subsystem, Component
 from backend.models.user import User
 from backend.database import db
 import os
@@ -87,7 +87,131 @@ def create_machine():
         qr_code=qr_id,
         qr_image=img_str
     ), 201
+#Subsystems
+@machines_bp.route('/<int:machine_id>/subsystems', methods=['GET'])
+@jwt_required()
+def get_subsystems(machine_id):
+    machine = Machine.query.get(machine_id)
+    if not machine:
+        return jsonify(message="Machine not found"), 404
+    
+    subsystems = Subsystem.query.filter_by(machine_id=machine_id).all()
+    
+    result = []
+    for subsystem in subsystems:
+        result.append({
+            'id': subsystem.id,
+            'name': subsystem.name,
+            'technical_id': subsystem.technical_id,
+            'description': subsystem.description,
+            'machine_id': subsystem.machine_id
+        })
+    
+    return jsonify(subsystems=result)
 
+@machines_bp.route('/<int:machine_id>/subsystems', methods=['POST'])
+@jwt_required()
+def create_subsystem(machine_id):
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    
+    # Only supervisors and admins can create subsystems
+    if user.role not in ['supervisor', 'admin']:
+        return jsonify(message="Unauthorized"), 403
+    
+    machine = Machine.query.get(machine_id)
+    if not machine:
+        return jsonify(message="Machine not found"), 404
+    
+    data = request.get_json()
+    
+    # Check if technical_id follows the correct format
+    technical_id = data.get('technical_id')
+    machine_tech_id = machine.technical_id
+    
+    if not technical_id.startswith(f"{machine_tech_id}."):
+        return jsonify(message=f"Technical ID must start with {machine_tech_id}."), 400
+    
+    # Check if subsystem with this technical_id already exists
+    existing = Subsystem.query.filter_by(technical_id=technical_id).first()
+    if existing:
+        return jsonify(message="Subsystem with this technical ID already exists"), 400
+    
+    subsystem = Subsystem(
+        name=data.get('name'),
+        technical_id=technical_id,
+        description=data.get('description'),
+        machine_id=machine.id
+    )
+    
+    db.session.add(subsystem)
+    db.session.commit()
+    
+    return jsonify(
+        message="Subsystem created successfully", 
+        id=subsystem.id,
+        technical_id=subsystem.technical_id
+    ), 201
+@machines_bp.route('/subsystems/<int:subsystem_id>', methods=['GET'])
+@jwt_required()
+def get_subsystem(subsystem_id):
+    subsystem = Subsystem.query.get(subsystem_id)
+    if not subsystem:
+        return jsonify(message="Subsystem not found"), 404
+    
+    # Get all components in this subsystem
+    components = Component.query.filter_by(subsystem_id=subsystem_id).all()
+    component_list = []
+    
+    for component in components:
+        component_list.append({
+            'id': component.id,
+            'name': component.name,
+            'technical_id': component.technical_id,
+            'location': component.location,
+            'function': component.function
+        })
+    
+    result = {
+        'id': subsystem.id,
+        'name': subsystem.name,
+        'technical_id': subsystem.technical_id,
+        'description': subsystem.description,
+        'machine_id': subsystem.machine_id,
+        'machine_name': subsystem.machine.name,
+        'components': component_list
+    }
+    
+    return jsonify(subsystem=result)
+
+@machines_bp.route('/subsystems/<int:subsystem_id>', methods=['PUT'])
+@jwt_required()
+def update_subsystem(subsystem_id):
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    
+    # Only supervisors and admins can update subsystems
+    if user.role not in ['supervisor', 'admin']:
+        return jsonify(message="Unauthorized"), 403
+    
+    subsystem = Subsystem.query.get(subsystem_id)
+    if not subsystem:
+        return jsonify(message="Subsystem not found"), 404
+    
+    data = request.get_json()
+    
+    # Update fields
+    if 'name' in data:
+        subsystem.name = data['name']
+    
+    if 'description' in data:
+        subsystem.description = data['description']
+    
+    db.session.commit()
+    
+    return jsonify(message="Subsystem updated successfully"), 200
+
+#Components
 @machines_bp.route('/<int:machine_id>/components', methods=['POST'])
 @jwt_required()
 def add_component(machine_id):
@@ -104,6 +228,28 @@ def add_component(machine_id):
     
     data = request.get_json()
     
+    # Validate subsystem
+    subsystem_id = data.get('subsystem_id')
+    subsystem = Subsystem.query.get(subsystem_id)
+    
+    if not subsystem:
+        return jsonify(message="Subsystem not found"), 404
+    
+    if subsystem.machine_id != machine_id:
+        return jsonify(message="Subsystem does not belong to this machine"), 400
+    
+    # Validate technical_id format
+    technical_id = data.get('technical_id')
+    subsystem_tech_id = subsystem.technical_id
+    
+    if not technical_id.startswith(f"{subsystem_tech_id}."):
+        return jsonify(message=f"Technical ID must start with {subsystem_tech_id}."), 400
+    
+    # Check for duplicate technical_id
+    existing = Component.query.filter_by(technical_id=technical_id).first()
+    if existing:
+        return jsonify(message="Component with this technical ID already exists"), 400
+
     component = Component(
         name=data.get('name'),
         machine_id=machine.id,
@@ -116,7 +262,12 @@ def add_component(machine_id):
     db.session.add(component)
     db.session.commit()
     
-    return jsonify(message="Component added successfully", id=component.id), 201
+    return jsonify(
+        message="Component added successfully", 
+        id=component.id,
+        technical_id=component.technical_id
+    ), 201
+    
 
 @machines_bp.route('/<int:machine_id>/hour-counter', methods=['PUT'])
 @jwt_required()

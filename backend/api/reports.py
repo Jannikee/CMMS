@@ -6,7 +6,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from backend.models.user import User
 from backend.services.statistics import MaintenanceStatistics
 from backend.services.reporting import ReportGenerator
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 
 reports_bp = Blueprint('reports', __name__)
@@ -116,6 +116,8 @@ def generate_pdf_report():
     data = request.get_json()
     report_type = data.get('report_type')
     machine_id = data.get('machine_id')
+    subsystem_id = data.get('subsystem_id')  # New parameter
+    component_id = data.get('component_id')  # New parameter
     start_date_str = data.get('start_date')
     end_date_str = data.get('end_date')
     
@@ -127,22 +129,13 @@ def generate_pdf_report():
     report_file = ReportGenerator.generate_pdf_report(
         report_type,
         machine_id,
+        subsystem_id,
+        component_id,
         start_date,
         end_date,
         user.username
     )
     
-    # Generate filename
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f"{report_type}_report_{timestamp}.pdf"
-    
-    return send_file(
-        report_file,
-        mimetype='application/pdf',
-        download_name=filename,
-        as_attachment=True
-    )
-
 @reports_bp.route('/dashboard-summary', methods=['GET'])
 @jwt_required()
 def get_dashboard_summary():
@@ -155,7 +148,7 @@ def get_dashboard_summary():
     
     # Get summary statistics for dashboard
     # Last 30 days by default
-    end_date = datetime.utcnow()
+    end_date = datetime.now(timezone.utc)
     start_date = end_date - timedelta(days=30)
     
     # Get work order counts by status

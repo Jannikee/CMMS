@@ -4,7 +4,7 @@ Work order routes
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from backend.models.work_order import WorkOrder
-from backend.models.machine import Machine, Component
+from backend.models.machine import Machine,Subsystem, Component
 from backend.models.user import User
 from backend.database import db
 from datetime import datetime, timedelta
@@ -41,6 +41,7 @@ def get_work_orders():
     result = []
     for wo in work_orders:
         machine = Machine.query.get(wo.machine_id)
+        subsystem = Subsystem.query.get(wo.subsystem) if wo.subsystem else None
         component = Component.query.get(wo.component_id) if wo.component_id else None
         assigned_user = User.query.get(wo.assigned_to) if wo.assigned_to else None          #Might not be needed
         
@@ -55,6 +56,7 @@ def get_work_orders():
             'created_at': wo.created_at.isoformat(),
             'due_date': wo.due_date.isoformat(),
             'machine': machine.name,
+            'subsystem': subsystem.name if subsystem else None,
             'component': component.name if component else None,
             'assigned_to': assigned_user.username if assigned_user else None,               # might not be needed
             'tool_requirements': wo.tool_requirements,
@@ -79,6 +81,15 @@ def create_work_order():
     if not machine:
         return jsonify(message="Machine not found"), 404
     
+    # Validate subsystem if provided
+    subsystem = None
+    if data.get('subsystem_id'):
+        subsystem = Subsystem.query.get(data.get('subsystem_id'))
+        if not subsystem:
+            return jsonify(message="Subsystem not found"), 404
+        if subsystem.machine_id != machine.id:
+            return jsonify(message="Subsystem does not belong to this machine"), 400
+        
     component = None
     if data.get('component_id'):
         component = Component.query.get(data.get('component_id'))
@@ -100,6 +111,7 @@ def create_work_order():
         type=data.get('type'),
         category=data.get('category'),
         machine_id=machine.id,
+        subsystem_id=subsystem.id if subsystem else None,
         component_id=component.id if component else None,
         assigned_to=assigned_user.id if assigned_user else None,
         tool_requirements=data.get('tool_requirements'),
@@ -152,3 +164,69 @@ def update_work_order(work_order_id):
     db.session.commit()
     
     return jsonify(message="Work order updated successfully"), 200
+
+@staticmethod
+def generate_from_rcm(equipment_id):
+    """Generate work orders based on RCM analysis"""
+    from backend.models.machine import Machine
+    from backend.models.work_order import WorkOrder
+    from backend.models.rcm import RCMMaintenance, RCMFailureMode, RCMFunctionalFailure, RCMFunction
+    from datetime import datetime, timedelta, timezone
+    
+    # Verify equipment exists
+    machine = Machine.query.get(equipment_id)
+    if not machine:
+        raise ValueError(f"Machine with ID {equipment_id} not found")
+    
+    # Find RCM functions for this equipment
+    functions = RCMFunction.query.filter_by(equipment_id=equipment_id).all()
+    
+    created_work_orders = []
+    
+    for function in functions:
+        for failure in function.functional_failures:
+            for mode in failure.failure_modes:
+                # Get maintenance actions for this failure mode
+                maintenance_actions = RCMMaintenance.query.filter_by(failure_mode_id=mode.id).all()
+                
+                for action in maintenance_actions:
+                    # Determine due date based on maintenance type
+                    if action.maintenance_type == 'preventive':
+                        # For preventive, schedule based on interval_days
+                        due_date = datetime.now(timezone.utc) + timedelta(days=7)  # Default to a week
+                        if action.interval_days:
+                            due_date = datetime.now(timezone.utc) + timedelta(days=action.interval_days)
+                    else:
+                        # For predictive/corrective, schedule sooner
+                        due_date = datetime.now(timezone.utc) + timedelta(days=3)
+                    
+                    # Check if a similar work order already exists
+                    existing_order = WorkOrder.query.filter_by(
+                        machine_id=equipment_id,
+                        title=action.title,
+                        status='open'
+                    ).first()
+                    
+                    if not existing_order:
+                        # Create a new work order
+                        work_order = WorkOrder(
+                            title=action.title,
+                            description=f"{action.description}\n\nBased on RCM analysis: {function.name} > {failure.name} > {mode.name}",
+                            due_date=due_date,
+                            status='open',
+                            priority='normal',
+                            type=action.maintenance_type,
+                            category='rcm',
+                            machine_id=equipment_id,
+                            reason=f"RCM-based maintenance: {mode.name}",
+                            generation_source='rcm',
+                            tool_requirements=""
+                        )
+                        
+                        db.session.add(work_order)
+                        created_work_orders.append(work_order)
+    
+    if created_work_orders:
+        db.session.commit()
+    
+    return created_work_orders

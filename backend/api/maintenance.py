@@ -9,7 +9,7 @@ from backend.models.machine import Machine, Component
 from backend.models.user import User
 from backend.models.work_order import WorkOrder
 from backend.database import db
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import uuid
 from werkzeug.utils import secure_filename
@@ -37,6 +37,7 @@ def add_maintenance_log():
         return jsonify(message="Machine ID and description are required"), 400
     
     # Optional fields
+    subsystem_id = data.get('subsystem_id') 
     component_id = data.get('component_id')
     work_order_id = data.get('work_order_id')
     maintenance_type = data.get('maintenance_type')
@@ -49,10 +50,23 @@ def add_maintenance_log():
     if not machine:
         return jsonify(message="Machine not found"), 404
     
+    if subsystem_id:
+        subsystem = Subsystem.query.get(subsystem_id)
+        if not subsystem:
+            return jsonify(message="Subsystem not found"), 404
+        if subsystem.machine_id != int(machine_id):
+            return jsonify(message="Subsystem does not belong to this machine"), 400
+        
     if component_id:
         component = Component.query.get(component_id)
         if not component:
             return jsonify(message="Component not found"), 404
+        if component.machine_id != int(machine_id):
+            return jsonify(message="Component does not belong to this machine"), 400
+        # Check if component belongs to the specified subsystem
+        if subsystem_id and component.subsystem_id != int(subsystem_id):
+            return jsonify(message="Component does not belong to the specified subsystem"), 400
+    
     
     if work_order_id:
         work_order = WorkOrder.query.get(work_order_id)
@@ -63,6 +77,7 @@ def add_maintenance_log():
     maintenance_log = MaintenanceLog(
         description=description,
         machine_id=machine_id,
+        subsystem_id=subsystem_id,
         component_id=component_id,
         performed_by=current_user_id,
         work_order_id=work_order_id,
@@ -110,7 +125,7 @@ def add_maintenance_log():
                     db.session.add(failure_image)
         
         # Update machine last_maintenance field
-        machine.last_maintenance = datetime.utcnow()
+        machine.last_maintenance = datetime.now(timezone.utc)
         
         # If work order exists, update its status
         if work_order_id:
@@ -180,6 +195,7 @@ def get_maintenance_logs():
             'description': log.description,
             'machine_id': log.machine_id,
             'machine_name': result.machine_name,
+            'subsystem_id': log.subsystem_id,
             'component_id': log.component_id,
             'performed_by': log.performed_by,
             'performed_by_name': result.performed_by_name,

@@ -1,6 +1,7 @@
 """
 Authentication routes
 """
+# This part is Heavily made with toturial, as I am not so comfortable with flask 
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from backend.models.user import User

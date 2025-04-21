@@ -3,78 +3,149 @@ Statistical analysis functions
 """
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from backend.models.maintenance_log import MaintenanceLog
 from backend.models.work_order import WorkOrder
 from backend.models.failure import Failure
-from backend.models.machine import Machine, Component
+from backend.models.machine import Machine,Subsystem, Component
 from sqlalchemy import func
 from backend.database import db
 
 class MaintenanceStatistics:
     @staticmethod
-    def get_failure_rates(machine_id=None, start_date=None, end_date=None):
-        """Calculate failure rates for machines"""
-        query = db.session.query(
-            Machine.id,
-            Machine.name,
-            func.count(Failure.id).label('failure_count')
-        ).join(
-            MaintenanceLog, MaintenanceLog.machine_id == Machine.id
-        ).join(
-            Failure, Failure.maintenance_log_id == MaintenanceLog.id
-        ).group_by(
-            Machine.id
-        )
-        
-        if machine_id:
-            query = query.filter(Machine.id == machine_id)
+    def get_failure_rates(machine_id=None, subsystem_id=None, component_id=None, start_date=None, end_date=None):
+        """
+        Calculating failure rates for machines, subsystems, or components
+        depending on the ID 
+        """
+        # Determine the level we're analyzing
+        if component_id:
+            # Component-level analysis
+            base_query = db.session.query(
+                Component.id,
+                Component.name,
+                Component.technical_id,
+                Subsystem.name.label('subsystem_name'),
+                Machine.name.label('machine_name'),
+                func.count(Failure.id).label('failure_count')
+            ).join(
+                MaintenanceLog, MaintenanceLog.component_id == Component.id
+            ).join(
+                Subsystem, Component.subsystem_id == Subsystem.id
+            ).join(
+                Machine, Component.machine_id == Machine.id
+            ).join(
+                Failure, Failure.maintenance_log_id == MaintenanceLog.id
+            ).filter(Component.id == component_id)
             
+            group_by = Component.id
+            
+        elif subsystem_id:
+            # Subsystem-level analysis
+            base_query = db.session.query(
+                Subsystem.id,
+                Subsystem.name,
+                Subsystem.technical_id,
+                Machine.name.label('machine_name'),
+                func.count(Failure.id).label('failure_count')
+            ).join(
+                MaintenanceLog, MaintenanceLog.subsystem_id == Subsystem.id
+            ).join(
+                Machine, Subsystem.machine_id == Machine.id
+            ).join(
+                Failure, Failure.maintenance_log_id == MaintenanceLog.id
+            ).filter(Subsystem.id == subsystem_id)
+            
+            group_by = Subsystem.id
+            
+        else:
+            # Machine-level analysis
+            base_query = db.session.query(
+                Machine.id,
+                Machine.name,
+                Machine.technical_id,
+                func.count(Failure.id).label('failure_count')
+            ).join(
+                MaintenanceLog, MaintenanceLog.machine_id == Machine.id
+            ).join(
+                Failure, Failure.maintenance_log_id == MaintenanceLog.id
+            )
+            
+            group_by = Machine.id
+            if machine_id:
+                base_query = base_query.filter(Machine.id == machine_id)
+        
+        # Common filters for all levels
         if start_date:
-            query = query.filter(MaintenanceLog.timestamp >= start_date)
-            
+            base_query = base_query.filter(MaintenanceLog.timestamp >= start_date)
         if end_date:
-            query = query.filter(MaintenanceLog.timestamp <= end_date)
-            
-        results = query.all()
+            base_query = base_query.filter(MaintenanceLog.timestamp <= end_date)
         
-        # Format results
+        # Group by the appropriate level
+        results = base_query.group_by(group_by).all()
+        
+        # Process and format the results
         failure_rates = []
-        for result in results:
-            machine_id, machine_name, failure_count = result
-            
-            # Get total operation hours for the machine
-            machine = Machine.query.get(machine_id)
-            total_hours = machine.hour_counter if machine.hour_counter else 0
-            
-            # Calculate failure rate per 1000 hours
-            failure_rate = (failure_count / total_hours * 1000) if total_hours > 0 else 0
-            
-            failure_rates.append({
-                'machine_id': machine_id,
-                'machine_name': machine_name,
-                'failure_count': failure_count,
-                'operation_hours': total_hours,
-                'failure_rate_per_1000h': round(failure_rate, 2)
-            })
         
-        return failure_rates
-    
-    @staticmethod
-    def get_maintenance_costs(machine_id=None, start_date=None, end_date=None):
-        """Calculate maintenance costs based on work orders"""
-        # This would require cost data to be stored with work orders
-        # Placeholder implementation
-        return {
-            'preventive_cost': 0,
-            'corrective_cost': 0,
-            'total_cost': 0,
-            'cost_comparison': {
-                'preventive_percentage': 0,
-                'corrective_percentage': 0
-            }
-        }
-    
+        for result in results:
+            if component_id:
+                # Component-level results
+                component_id, component_name, technical_id, subsystem_name, machine_name, failure_count = result
+                
+                # Get the operating hours (can be machine hours or a more specific metric if available)
+                machine = Machine.query.get(Component.query.get(component_id).machine_id)
+                total_hours = machine.hour_counter if machine.hour_counter else 0
+                
+                failure_rates.append({
+                    'level': 'component',
+                    'id': component_id,
+                    'name': component_name,
+                    'technical_id': technical_id,
+                    'subsystem_name': subsystem_name,
+                    'machine_name': machine_name,
+                    'failure_count': failure_count,
+                    'operation_hours': total_hours,
+                    'failure_rate_per_1000h': round((failure_count / total_hours * 1000) if total_hours > 0 else 0, 2)
+                })
+                
+            elif subsystem_id:
+                # Subsystem-level results
+                subsystem_id, subsystem_name, technical_id, machine_name, failure_count = result
+                
+                # Get the operating hours
+                machine = Machine.query.get(Subsystem.query.get(subsystem_id).machine_id)
+                total_hours = machine.hour_counter if machine.hour_counter else 0
+                
+                failure_rates.append({
+                    'level': 'subsystem',
+                    'id': subsystem_id,
+                    'name': subsystem_name,
+                    'technical_id': technical_id,
+                    'machine_name': machine_name,
+                    'failure_count': failure_count,
+                    'operation_hours': total_hours,
+                    'failure_rate_per_1000h': round((failure_count / total_hours * 1000) if total_hours > 0 else 0, 2)
+                })
+                
+            else:
+                # Machine-level results
+                machine_id, machine_name, technical_id, failure_count = result
+                
+                # Get the operating hours
+                machine = Machine.query.get(machine_id)
+                total_hours = machine.hour_counter if machine.hour_counter else 0
+                
+                failure_rates.append({
+                    'level': 'machine',
+                    'id': machine_id,
+                    'name': machine_name,
+                    'technical_id': technical_id,
+                    'failure_count': failure_count,
+                    'operation_hours': total_hours,
+                    'failure_rate_per_1000h': round((failure_count / total_hours * 1000) if total_hours > 0 else 0, 2)
+                })
+        
+        return failure_rates  
     @staticmethod
     def get_uptime_statistics(machine_id=None, start_date=None, end_date=None):
         """Calculate uptime statistics for machines"""
@@ -104,10 +175,10 @@ class MaintenanceStatistics:
         
         # Calculate time period for uptime calculation
         if not start_date:
-            start_date = datetime.utcnow() - timedelta(days=30)  # Default to last 30 days
+            start_date = datetime.now(timezone.utc) - timedelta(days=30)  # Default to last 30 days
             
         if not end_date:
-            end_date = datetime.utcnow()
+            end_date = datetime.now(timezone.utc)
             
         total_hours = (end_date - start_date).total_seconds() / 3600
         

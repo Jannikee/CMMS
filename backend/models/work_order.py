@@ -17,8 +17,9 @@ class WorkOrder(db.Model):
     
     # Foreign keys 
     machine_id = db.Column(db.Integer, db.ForeignKey('machine.id'), nullable=False)  # which machine needs work   
+    subsystem_id = db.Column(db.Integer, db.ForeignKey('subsystem.id'))                # which subsystem needs work
     component_id = db.Column(db.Integer, db.ForeignKey('component.id'))              # which component needs work
-    #assigned_to = db.Column(db.Integer, db.ForeignKey('user.id'))                   # Who should do the work....Not needed, only who did the work
+    assigned_to = db.Column(db.Integer, db.ForeignKey('user.id'))                   # Who should do the work....Not needed, only who did the work
     
     # Relationships
     tool_requirements = db.Column(db.Text)

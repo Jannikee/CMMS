@@ -4,7 +4,7 @@ Work order generation service
 from backend.models.machine import Machine, Component
 from backend.models.work_order import WorkOrder
 from backend.database import db
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 class WorkOrderGenerator:
     @staticmethod
@@ -27,7 +27,7 @@ class WorkOrderGenerator:
                     work_order = WorkOrder(
                         title=f"Regular maintenance for {machine.name} - {machine.hour_counter} hours",
                         description=f"Perform regular maintenance after {machine.hour_counter} hours of operation.",
-                        due_date=datetime.utcnow() + timedelta(days=3),
+                        due_date=datetime.now(timezone.utc) + timedelta(days=3),
                         status='open',
                         priority='normal',
                         type='preventive',
@@ -51,7 +51,7 @@ class WorkOrderGenerator:
         machines = Machine.query.all()
         work_orders_created = []
         
-        current_date = datetime.utcnow()
+        current_date = datetime.now(timezone.utc)
         
         for machine in machines:
             # Example: monthly maintenance check
@@ -134,7 +134,7 @@ class WorkOrderGenerator:
             'major': 3,
             'critical': 1
         }
-        due_date = datetime.utcnow() + timedelta(days=due_date_days.get(severity, 7))
+        due_date = datetime.now(timezone.utc) + timedelta(days=due_date_days.get(severity, 7))
         
         work_order = WorkOrder(
             title=f"Fix {severity} issue with {component_name} on {machine.name}",
@@ -163,7 +163,7 @@ class WorkOrderGenerator:
             return []
         
         work_orders_created = []
-        current_date = datetime.utcnow()
+        current_date = datetime.now(timezone.utc)
         
         # Example schedule_config format:
         # [
@@ -219,7 +219,7 @@ class WorkOrderGenerator:
         work_order = WorkOrder(
             title=f"RCM: {recommended_action} for {component_name} on {machine.name}",
             description=f"Based on RCM analysis, perform {recommended_action} to prevent {failure_mode}.",
-            due_date=datetime.utcnow() + timedelta(days=7),
+            due_date=datetime.now(timezone.utc) + timedelta(days=7),
             status='open',
             priority=priority,
             type='predictive',
