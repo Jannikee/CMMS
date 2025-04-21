@@ -1,103 +1,135 @@
 // frontend/web_app/src/components/ComponentHierarchyTree.js
 import React, { useState, useEffect } from 'react';
-import { Tree, Typography, Spin, Empty } from 'antd';
-import { getComponentHierarchy } from '../services/api';
+import { Tree, Spin, Empty, Typography, Button } from 'antd';
+import { DownOutlined, PlusOutlined } from '@ant-design/icons';
+import { fetchMachines, fetchSubsystems, fetchComponents } from '../services/api';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
-const ComponentHierarchyTree = ({ equipmentId }) => {
+const HierarchyTree = ({ onSelect, onAddClick }) => {
   const [loading, setLoading] = useState(true);
   const [treeData, setTreeData] = useState([]);
   
   useEffect(() => {
-    if (!equipmentId) return;
-    
-    const loadHierarchy = async () => {
-      try {
-        setLoading(true);
-        const data = await getComponentHierarchy(equipmentId);
-        
-        // Transform hierarchy data to format expected by Ant Design Tree
-        const transformedData = transformHierarchyToTreeData(data.hierarchy);
-        setTreeData(transformedData);
-      } catch (error) {
-        console.error('Error loading component hierarchy:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     loadHierarchy();
-  }, [equipmentId]);
+  }, []);
   
-  const transformHierarchyToTreeData = (hierarchy) => {
-    if (!hierarchy) return [];
-    
-    // Transform root node
-    const rootNode = {
-      key: `machine-${hierarchy.id}`,
-      title: (
-        <span>
-          <strong>{hierarchy.station_number}</strong> - {hierarchy.name}
-          {hierarchy.technical_name && (
-            <Text type="secondary" style={{ marginLeft: 8 }}>
-              ({hierarchy.technical_name})
-            </Text>
-          )}
-        </span>
-      ),
-      children: []
-    };
-    
-    // Transform children recursively
-    if (hierarchy.children && hierarchy.children.length > 0) {
-      rootNode.children = hierarchy.children.map(child => transformNodeToTreeNode(child));
+  const loadHierarchy = async () => {
+    try {
+      setLoading(true);
+      const response = await fetchMachines();
+      const machines = response.machines || [];
+      
+      // Transform to tree structure
+      const machineNodes = await Promise.all(machines.map(async machine => {
+        // Get subsystems for this machine
+        const subsystemResponse = await fetchSubsystems(machine.id);
+        const subsystems = subsystemResponse.subsystems || [];
+        
+        // Create subsystem nodes
+        const subsystemNodes = await Promise.all(subsystems.map(async subsystem => {
+          // Get components for this subsystem
+          const componentResponse = await fetchComponents(subsystem.id);
+          const components = componentResponse.components || [];
+          
+          // Create component nodes
+          const componentNodes = components.map(component => ({
+            key: `component-${component.id}`,
+            title: (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>{component.name} ({component.technical_id})</span>
+                <Button 
+                  type="text" 
+                  icon={<PlusOutlined />} 
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddClick && onAddClick('component', component.id, component);
+                  }}
+                />
+              </div>
+            ),
+            isLeaf: true,
+            data: { ...component, type: 'component' }
+          }));
+          
+          return {
+            key: `subsystem-${subsystem.id}`,
+            title: (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>{subsystem.name} ({subsystem.technical_id})</span>
+                <Button 
+                  type="text" 
+                  icon={<PlusOutlined />} 
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddClick && onAddClick('subsystem', subsystem.id, subsystem);
+                  }}
+                />
+              </div>
+            ),
+            children: componentNodes,
+            data: { ...subsystem, type: 'subsystem' }
+          };
+        }));
+        
+        return {
+          key: `machine-${machine.id}`,
+          title: (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>{machine.name} ({machine.technical_id})</span>
+              <Button 
+                type="text" 
+                icon={<PlusOutlined />} 
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddClick && onAddClick('machine', machine.id, machine);
+                }}
+              />
+            </div>
+          ),
+          children: subsystemNodes,
+          data: { ...machine, type: 'machine' }
+        };
+      }));
+      
+      setTreeData(machineNodes);
+    } catch (error) {
+      console.error('Error loading hierarchy:', error);
+    } finally {
+      setLoading(false);
     }
-    
-    return [rootNode];
   };
   
-  const transformNodeToTreeNode = (node) => {
-    const treeNode = {
-      key: `component-${node.id}`,
-      title: (
-        <span>
-          <strong>{node.station_number}</strong> - {node.name}
-          {node.technical_name && (
-            <Text type="secondary" style={{ marginLeft: 8 }}>
-              ({node.technical_name})
-            </Text>
-          )}
-        </span>
-      )
-    };
-    
-    if (node.children && node.children.length > 0) {
-      treeNode.children = node.children.map(child => transformNodeToTreeNode(child));
+  const handleSelect = (selectedKeys, info) => {
+    if (selectedKeys.length > 0 && onSelect) {
+      onSelect(info.node.data);
     }
-    
-    return treeNode;
   };
   
   return (
-    <div className="component-hierarchy-container">
-      <Title level={4}>Component Structure</Title>
+    <div className="hierarchy-tree-container">
+      <Title level={4}>Equipment Hierarchy</Title>
       
       {loading ? (
-        <div className="loading-container">
+        <div style={{ textAlign: 'center', padding: '20px' }}>
           <Spin />
         </div>
       ) : treeData.length > 0 ? (
         <Tree
           showLine
-          defaultExpandAll
+          switcherIcon={<DownOutlined />}
+          defaultExpandedKeys={['machine-1']}
+          onSelect={handleSelect}
           treeData={treeData}
         />
       ) : (
-        <Empty description="No component structure available" />
+        <Empty description="No equipment found" />
       )}
     </div>
   );
 };
 
-export default ComponentHierarchyTree;
+export default HierarchyTree;

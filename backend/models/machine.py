@@ -2,7 +2,7 @@
 Machine model
 """
 from backend.database import db
-from datetime import datetime
+from datetime import datetime, timezone
 
 class Machine(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -37,6 +37,8 @@ class Subsystem(db.Model):
     
     # Relationships
     components = db.relationship('Component', backref='subsystem', lazy=True)
+    work_orders = db.relationship('WorkOrder', backref='subsystem', lazy=True)
+    maintenance_logs = db.relationship('MaintenanceLog', backref='subsystem', lazy=True)
 
     def __repr__(self):
         return f'<Subsystem {self.name} ({self.technical_id}) of Machine {self.machine_id})>'
@@ -48,12 +50,17 @@ class Component(db.Model):
     technical_id = db.Column(db.String(20), unique=True)  # e.g., "1077.01.001"
     location = db.Column(db.String(200))
     function = db.Column(db.Text)
+    installation_date = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     maintenance_requirements = db.Column(db.Text)
     potential_failures = db.Column(db.Text)
     
     # Foreign keys
     subsystem_id = db.Column(db.Integer, db.ForeignKey('subsystem.id'), nullable=False)
     machine_id = db.Column(db.Integer, db.ForeignKey('machine.id'), nullable=False)
+
+    # Relationships
+    work_orders = db.relationship('WorkOrder', backref='component', lazy=True)
+    maintenance_logs = db.relationship('MaintenanceLog', backref='component', lazy=True)
     
     #String representation
     def __repr__(self):

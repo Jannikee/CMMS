@@ -1,9 +1,9 @@
 """
-Machine management
+Machine and hierarchy management
 """
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from backend.models.machine import Machine,Subsystem, Component
+from backend.models.machine import Machine, Subsystem, Component
 from backend.models.user import User
 from backend.database import db
 import os
@@ -12,9 +12,58 @@ import qrcode
 from PIL import Image
 from io import BytesIO
 import base64
+import re  # For technical ID validation
 
 machines_bp = Blueprint('machines', __name__)
 
+# Technical ID validation patterns
+MACHINE_ID_PATTERN = re.compile(r'^\d+$')
+SUBSYSTEM_ID_PATTERN = re.compile(r'^\d+\.\d+$')
+COMPONENT_ID_PATTERN = re.compile(r'^\d+\.\d+\.\d+$')
+
+def validate_technical_id(technical_id, level, parent_id=None):
+    """
+    Validate the technical ID format and hierarchy
+    
+    Parameters:
+    technical_id - ID to validate
+    level - 'machine', 'subsystem', or 'component'
+    parent_id - Parent technical ID (for subsystems/components)
+    
+    Returns:
+    (is_valid, error_message)
+    """
+    if not technical_id:
+        return False, "Technical ID is required"
+        
+    if level == 'machine':
+        if not MACHINE_ID_PATTERN.match(technical_id):
+            return False, "Machine technical ID must be a number (e.g., '1077')"
+        return True, None
+        
+    elif level == 'subsystem':
+        if not SUBSYSTEM_ID_PATTERN.match(technical_id):
+            return False, "Subsystem technical ID must be in format 'number.number' (e.g., '1077.01')"
+        
+        if parent_id:
+            if not technical_id.startswith(f"{parent_id}."):
+                return False, f"Subsystem technical ID must start with parent machine ID: {parent_id}."
+        
+        return True, None
+        
+    elif level == 'component':
+        if not COMPONENT_ID_PATTERN.match(technical_id):
+            return False, "Component technical ID must be in format 'number.number.number' (e.g., '1077.01.001')"
+        
+        if parent_id:
+            if not technical_id.startswith(f"{parent_id}."):
+                return False, f"Component technical ID must start with parent subsystem ID: {parent_id}."
+        
+        return True, None
+        
+    return False, "Invalid level specified"
+
+# Machine endpoints
 @machines_bp.route('/', methods=['GET'])
 @jwt_required()
 def get_machines():
@@ -25,12 +74,14 @@ def get_machines():
         result.append({
             'id': machine.id,
             'name': machine.name,
+            'technical_id': machine.technical_id,
             'location': machine.location,
             'description': machine.description,
             'installation_date': machine.installation_date.isoformat() if machine.installation_date else None,
             'last_maintenance': machine.last_maintenance.isoformat() if machine.last_maintenance else None,
             'hour_counter': machine.hour_counter,
-            'qr_code': machine.qr_code
+            'qr_code': machine.qr_code,
+            'subsystem_count': len(machine.subsystems)
         })
     
     return jsonify(machines=result)
@@ -46,6 +97,17 @@ def create_machine():
         return jsonify(message="Unauthorized"), 403
     
     data = request.get_json()
+    
+    # Validate technical ID
+    technical_id = data.get('technical_id')
+    is_valid, error_message = validate_technical_id(technical_id, 'machine')
+    if not is_valid:
+        return jsonify(message=error_message), 400
+    
+    # Check if technical ID already exists
+    existing = Machine.query.filter_by(technical_id=technical_id).first()
+    if existing:
+        return jsonify(message="Machine with this technical ID already exists"), 400
     
     # Generate unique QR code
     qr_id = str(uuid.uuid4())
@@ -65,8 +127,10 @@ def create_machine():
     qr_path = os.path.join(current_app.config['UPLOAD_FOLDER'], qr_filename)
     qr_img.save(qr_path)
     
+    # Create machine
     machine = Machine(
         name=data.get('name'),
+        technical_id=technical_id,
         location=data.get('location'),
         description=data.get('description'),
         qr_code=qr_id,
@@ -84,10 +148,49 @@ def create_machine():
     return jsonify(
         message="Machine created successfully", 
         id=machine.id,
+        technical_id=machine.technical_id,
         qr_code=qr_id,
         qr_image=img_str
     ), 201
-#Subsystems
+
+@machines_bp.route('/<int:machine_id>', methods=['GET'])
+@jwt_required()
+def get_machine(machine_id):
+    machine = Machine.query.get(machine_id)
+    if not machine:
+        return jsonify(message="Machine not found"), 404
+    
+    # Get subsystems for this machine
+    subsystems = Subsystem.query.filter_by(machine_id=machine_id).all()
+    subsystem_list = []
+    
+    for subsystem in subsystems:
+        component_count = Component.query.filter_by(subsystem_id=subsystem.id).count()
+        
+        subsystem_list.append({
+            'id': subsystem.id,
+            'name': subsystem.name,
+            'technical_id': subsystem.technical_id,
+            'description': subsystem.description,
+            'component_count': component_count
+        })
+    
+    result = {
+        'id': machine.id,
+        'name': machine.name,
+        'technical_id': machine.technical_id,
+        'location': machine.location,
+        'description': machine.description,
+        'installation_date': machine.installation_date.isoformat() if machine.installation_date else None,
+        'last_maintenance': machine.last_maintenance.isoformat() if machine.last_maintenance else None,
+        'hour_counter': machine.hour_counter,
+        'qr_code': machine.qr_code,
+        'subsystems': subsystem_list
+    }
+    
+    return jsonify(machine=result)
+
+# Subsystem endpoints
 @machines_bp.route('/<int:machine_id>/subsystems', methods=['GET'])
 @jwt_required()
 def get_subsystems(machine_id):
@@ -104,7 +207,8 @@ def get_subsystems(machine_id):
             'name': subsystem.name,
             'technical_id': subsystem.technical_id,
             'description': subsystem.description,
-            'machine_id': subsystem.machine_id
+            'machine_id': subsystem.machine_id,
+            'component_count': Component.query.filter_by(subsystem_id=subsystem.id).count()
         })
     
     return jsonify(subsystems=result)
@@ -125,12 +229,11 @@ def create_subsystem(machine_id):
     
     data = request.get_json()
     
-    # Check if technical_id follows the correct format
+    # Validate technical ID
     technical_id = data.get('technical_id')
-    machine_tech_id = machine.technical_id
-    
-    if not technical_id.startswith(f"{machine_tech_id}."):
-        return jsonify(message=f"Technical ID must start with {machine_tech_id}."), 400
+    is_valid, error_message = validate_technical_id(technical_id, 'subsystem', machine.technical_id)
+    if not is_valid:
+        return jsonify(message=error_message), 400
     
     # Check if subsystem with this technical_id already exists
     existing = Subsystem.query.filter_by(technical_id=technical_id).first()
@@ -152,6 +255,7 @@ def create_subsystem(machine_id):
         id=subsystem.id,
         technical_id=subsystem.technical_id
     ), 201
+
 @machines_bp.route('/subsystems/<int:subsystem_id>', methods=['GET'])
 @jwt_required()
 def get_subsystem(subsystem_id):
@@ -169,7 +273,8 @@ def get_subsystem(subsystem_id):
             'name': component.name,
             'technical_id': component.technical_id,
             'location': component.location,
-            'function': component.function
+            'function': component.function,
+            'installation_date': component.installation_date.isoformat() if component.installation_date else None
         })
     
     result = {
@@ -184,75 +289,64 @@ def get_subsystem(subsystem_id):
     
     return jsonify(subsystem=result)
 
-@machines_bp.route('/subsystems/<int:subsystem_id>', methods=['PUT'])
+# Component endpoints
+@machines_bp.route('/subsystems/<int:subsystem_id>/components', methods=['GET'])
 @jwt_required()
-def update_subsystem(subsystem_id):
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-    
-    # Only supervisors and admins can update subsystems
-    if user.role not in ['supervisor', 'admin']:
-        return jsonify(message="Unauthorized"), 403
-    
+def get_components(subsystem_id):
     subsystem = Subsystem.query.get(subsystem_id)
     if not subsystem:
         return jsonify(message="Subsystem not found"), 404
     
-    data = request.get_json()
+    components = Component.query.filter_by(subsystem_id=subsystem_id).all()
     
-    # Update fields
-    if 'name' in data:
-        subsystem.name = data['name']
+    result = []
+    for component in components:
+        result.append({
+            'id': component.id,
+            'name': component.name,
+            'technical_id': component.technical_id,
+            'location': component.location,
+            'function': component.function,
+            'installation_date': component.installation_date.isoformat() if component.installation_date else None,
+            'maintenance_requirements': component.maintenance_requirements,
+            'subsystem_id': component.subsystem_id,
+            'machine_id': component.machine_id
+        })
     
-    if 'description' in data:
-        subsystem.description = data['description']
-    
-    db.session.commit()
-    
-    return jsonify(message="Subsystem updated successfully"), 200
+    return jsonify(components=result)
 
-#Components
-@machines_bp.route('/<int:machine_id>/components', methods=['POST'])
+@machines_bp.route('/subsystems/<int:subsystem_id>/components', methods=['POST'])
 @jwt_required()
-def add_component(machine_id):
+def create_component(subsystem_id):
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
     
-    # Only supervisors and admins can add components                AGAIN not sure if keep
+    # Only supervisors and admins can add components
     if user.role not in ['supervisor', 'admin']:
         return jsonify(message="Unauthorized"), 403
     
-    machine = Machine.query.get(machine_id)
-    if not machine:
-        return jsonify(message="Machine not found"), 404
-    
-    data = request.get_json()
-    
-    # Validate subsystem
-    subsystem_id = data.get('subsystem_id')
     subsystem = Subsystem.query.get(subsystem_id)
-    
     if not subsystem:
         return jsonify(message="Subsystem not found"), 404
     
-    if subsystem.machine_id != machine_id:
-        return jsonify(message="Subsystem does not belong to this machine"), 400
+    data = request.get_json()
     
-    # Validate technical_id format
+    # Validate technical ID
     technical_id = data.get('technical_id')
-    subsystem_tech_id = subsystem.technical_id
-    
-    if not technical_id.startswith(f"{subsystem_tech_id}."):
-        return jsonify(message=f"Technical ID must start with {subsystem_tech_id}."), 400
+    is_valid, error_message = validate_technical_id(technical_id, 'component', subsystem.technical_id)
+    if not is_valid:
+        return jsonify(message=error_message), 400
     
     # Check for duplicate technical_id
     existing = Component.query.filter_by(technical_id=technical_id).first()
     if existing:
         return jsonify(message="Component with this technical ID already exists"), 400
-
+    
     component = Component(
         name=data.get('name'),
-        machine_id=machine.id,
+        technical_id=technical_id,
+        machine_id=subsystem.machine_id,
+        subsystem_id=subsystem.id,
         location=data.get('location'),
         function=data.get('function'),
         maintenance_requirements=data.get('maintenance_requirements'),
@@ -267,22 +361,27 @@ def add_component(machine_id):
         id=component.id,
         technical_id=component.technical_id
     ), 201
-    
 
-@machines_bp.route('/<int:machine_id>/hour-counter', methods=['PUT'])
+@machines_bp.route('/components/<int:component_id>', methods=['GET'])
 @jwt_required()
-def update_hour_counter(machine_id):
-    machine = Machine.query.get(machine_id)
-    if not machine:
-        return jsonify(message="Machine not found"), 404
+def get_component(component_id):
+    component = Component.query.get(component_id)
+    if not component:
+        return jsonify(message="Component not found"), 404
     
-    data = request.get_json()
-    new_hours = data.get('hours')
+    result = {
+        'id': component.id,
+        'name': component.name,
+        'technical_id': component.technical_id,
+        'location': component.location,
+        'function': component.function,
+        'installation_date': component.installation_date.isoformat() if component.installation_date else None,
+        'maintenance_requirements': component.maintenance_requirements,
+        'potential_failures': component.potential_failures,
+        'subsystem_id': component.subsystem_id,
+        'subsystem_name': component.subsystem.name,
+        'machine_id': component.machine_id,
+        'machine_name': component.machine.name
+    }
     
-    if new_hours is None or not isinstance(new_hours, (int, float)):
-        return jsonify(message="Invalid hour value"), 400
-    
-    machine.hour_counter = new_hours
-    db.session.commit()
-    
-    return jsonify(message="Hour counter updated successfully"), 200
+    return jsonify(component=result)

@@ -6,7 +6,7 @@ from backend.database import db
 
 class RCMImportService:
     @staticmethod
-    def import_from_excel(file_path, equipment_id):
+    def import_rcm_excel(file_path, equipment_id):
         """Import RCM analysis from Excel file"""
         try:
             # Read Excel file
@@ -111,3 +111,120 @@ class RCMImportService:
         except Exception as e:
             db.session.rollback()
             raise e
+        
+def import_hierarchy_from_excel(file_path):
+    """Import machine hierarchy from Excel file"""
+    import pandas as pd
+    from backend.models.machine import Machine, Subsystem, Component
+    from backend.database import db
+    from backend.services.technical_id_service import TechnicalIDService
+    
+    try:
+        # Read Excel file
+        df = pd.read_excel(file_path)
+        
+        # Expected columns
+        required_columns = ['technical_id', 'name', 'type', 'description']
+        for col in required_columns:
+            if col not in df.columns:
+                return {'success': False, 'message': f"Missing required column: {col}"}
+        
+        # Process rows
+        machines_created = 0
+        subsystems_created = 0
+        components_created = 0
+        
+        # First pass - create all entries
+        for _, row in df.iterrows():
+            technical_id = str(row['technical_id']).strip()
+            name = row['name']
+            entity_type = row['type'].lower()  # 'machine', 'subsystem', 'component'
+            description = row.get('description', '')
+            
+            # Parse the technical ID
+            id_info = TechnicalIDService.parse_id(technical_id)
+            
+            if not id_info['level']:
+                continue  # Invalid ID format
+            
+            if id_info['level'] != entity_type:
+                continue  # ID format doesn't match declared type
+            
+            # Check if entity already exists
+            if entity_type == 'machine':
+                if Machine.query.filter_by(technical_id=technical_id).first():
+                    continue  # Already exists
+                
+                # Create new machine
+                machine = Machine(
+                    name=name,
+                    technical_id=technical_id,
+                    description=description,
+                    location=row.get('location', ''),
+                    qr_code=str(uuid.uuid4())  # Generate a unique QR code
+                )
+                db.session.add(machine)
+                machines_created += 1
+                
+            elif entity_type == 'subsystem':
+                if Subsystem.query.filter_by(technical_id=technical_id).first():
+                    continue  # Already exists
+                
+                # Find parent machine
+                machine = Machine.query.filter_by(technical_id=id_info['machine_id']).first()
+                if not machine:
+                    continue  # Parent doesn't exist
+                
+                # Create new subsystem
+                subsystem = Subsystem(
+                    name=name,
+                    technical_id=technical_id,
+                    description=description,
+                    machine_id=machine.id
+                )
+                db.session.add(subsystem)
+                subsystems_created += 1
+                
+            elif entity_type == 'component':
+                if Component.query.filter_by(technical_id=technical_id).first():
+                    continue  # Already exists
+                
+                # Find parent subsystem
+                subsystem = Subsystem.query.filter_by(technical_id=id_info['subsystem_id']).first()
+                if not subsystem:
+                    continue  # Parent doesn't exist
+                
+                # Find machine
+                machine = Machine.query.filter_by(technical_id=id_info['machine_id']).first()
+                if not machine:
+                    continue  # Machine doesn't exist
+                
+                # Create new component
+                component = Component(
+                    name=name,
+                    technical_id=technical_id,
+                    description=description,
+                    location=row.get('location', ''),
+                    function=row.get('function', ''),
+                    maintenance_requirements=row.get('maintenance_requirements', ''),
+                    potential_failures=row.get('potential_failures', ''),
+                    subsystem_id=subsystem.id,
+                    machine_id=machine.id
+                )
+                db.session.add(component)
+                components_created += 1
+        
+        # Commit all changes
+        db.session.commit()
+        
+        return {
+            'success': True,
+            'message': f"Successfully imported {machines_created} machines, {subsystems_created} subsystems, and {components_created} components",
+            'machines_created': machines_created,
+            'subsystems_created': subsystems_created, 
+            'components_created': components_created
+        }
+        
+    except Exception as e:
+        db.session.rollback()
+        return {'success': False, 'message': f"Import failed: {str(e)}"}
