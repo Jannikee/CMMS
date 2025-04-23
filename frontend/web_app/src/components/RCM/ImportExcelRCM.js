@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Upload, Button, Form, Select, message } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
-import { uploadRCMExcel } from '../services/api';
+import { uploadRCMExcel } from '../../services/api';
 
 const ImportExcelRCM = ({ machines, onUploadSuccess }) => {
   const [form] = Form.useForm();

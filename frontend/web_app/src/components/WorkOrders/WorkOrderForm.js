@@ -24,7 +24,7 @@ import {
 import moment from 'moment';
 import { createWorkOrder, fetchWorkOrderById, updateWorkOrder } from '../../services/workOrderService';
 import { fetchSubsystems, fetchComponents } from '../../services/machineService';
-import { fetchUsers } from '../../services/authService';
+import { fetchUsers } from '../../services/AuthService';
 import './WorkOrderForm.css';
 
 const { Title } = Typography;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Collapse, Tag, Spin, message } from 'antd';
 import { DownOutlined, RightOutlined, PlusOutlined, ToolOutlined } from '@ant-design/icons';
-import { fetchRCMAnalysis, generateWorkOrders } from '../services/api';
+import { fetchRCMAnalysis, generateWorkOrders } from '../../services/api';
 
 const { Panel } = Collapse;
 

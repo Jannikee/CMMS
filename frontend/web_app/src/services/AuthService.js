@@ -4,7 +4,7 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 // Create axios instance with base URL
 const authAPI = axios.create({
-  baseURL: `${API_URL}/auth`,
+  baseURL: `${API_URL}/api/auth`,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -27,7 +27,9 @@ authAPI.interceptors.request.use(
 // Login user
 export const loginUser = async (username, password) => {
   try {
+    console.log("Sender login request...");                                 //Tester
     const response = await authAPI.post('/login', { username, password });
+    console.log("Server response:", response.data);                         //tester
     
     // Store the token in localStorage
     if (response.data.access_token) {
@@ -113,3 +115,12 @@ function parseJwt(token) {
     return null;
   }
 }
+export const fetchUsers = async () => {
+  try {
+    const response = await authAPI.get('/users'); // Calls Flask API
+    return response.data.users; // Extracts user list from response
+  } catch (error) {
+    console.error('Fetch users error:', error.response?.data?.message || error.message);
+    throw new Error(error.response?.data?.message || 'Failed to fetch users');
+  }
+};

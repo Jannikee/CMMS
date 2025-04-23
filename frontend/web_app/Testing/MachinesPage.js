@@ -22,12 +22,12 @@ import {
   BarChartOutlined,
   LineChartOutlined
 } from '@ant-design/icons';
-import { AuthContext } from '../context/AuthContext';
-import { fetchMachines } from '../services/machineService';
-import MachineDetail from '../components/Machines/MachineDetail';
+import { AuthContext } from '../src/context/AuthContext';
+import { fetchMachines } from '../src/services/machineService';
+import MachineDetail from '../src/components/Machines/MachineDetail';
 import MachineForm from '../components/Machines/MachineForm';
-import ComponentHierarchyTree from '../components/Machines/ComponentHierarchyTree';
-import ImportExcelTP from '../components/Machines/ImportExcelTP';
+import ComponentHierarchyTree from '../src/components/Machines/ComponentHierarchyTree';
+import ImportExcelTP from '../src/components/Machines/ImportExcelTP';
 import './MachinesPage.css';
 
 const { Title } = Typography;

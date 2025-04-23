@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Tree, Spin, Empty, Typography, Button } from 'antd';
 import { DownOutlined, PlusOutlined } from '@ant-design/icons';
-import { fetchMachines, fetchSubsystems, fetchComponents } from '../services/api';
+import { fetchMachines, fetchSubsystems, fetchComponents } from '../../services/api';
 
 const { Title } = Typography;
 

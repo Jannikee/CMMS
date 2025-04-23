@@ -41,3 +41,13 @@ def register():
     db.session.commit()
     
     return jsonify(message="User registered successfully"), 201
+
+@auth_bp.route('/users', methods=['GET'])
+@jwt_required()  # Requires authentication
+def get_users():
+    current_user = get_jwt_identity()  # Get the user making the request
+    
+    users = User.query.all()  # Fetch all users from the database
+    users_data = [user.to_dict() for user in users]  # Convert each user to a dictionary
+    
+    return jsonify(users=users_data), 200
