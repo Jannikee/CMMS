@@ -40,10 +40,16 @@ def create_app(config_class=Config):
     app.register_blueprint(reports_bp, url_prefix='/api/reports')
 
     #add jwt callbacks
-    @jwt.token_verification_failed_callback
-    def token_verification_failed_callback(jwt_header, jwt_payload):
+    @jwt.invalid_token_loader
+    def invalid_token_callback(error_string):
+        print(f"JWT Verification Failed: {error_string}")
+        return jsonify({"message": "Token verification failed"}), 422
+    """
+    @jwt._token_verification_failed_callback
+    def _token_verification_failed_callback(jwt_header, jwt_payload):
         print(f"JWT Verification Failed: {jwt_header} - Payload: {jwt_payload}")
         return jsonify({"message": "Token verification failed"}), 422
+    """
     
     # Create database tables
     with app.app_context():

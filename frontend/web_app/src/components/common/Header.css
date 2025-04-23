@@ -1,0 +1,52 @@
+.app-header {
+    padding: 0 24px;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
+    height: 64px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  
+  .header-left {
+    display: flex;
+    align-items: center;
+  }
+  
+  .header-right {
+    display: flex;
+    align-items: center;
+  }
+  
+  .trigger-button {
+    font-size: 18px;
+    margin-right: 24px;
+    padding: 0 12px;
+    height: 64px;
+  }
+  
+  .page-title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 500;
+    color: rgba(0, 0, 0, 0.85);
+  }
+  
+  .user-dropdown {
+    cursor: pointer;
+    padding: 8px 0;
+  }
+  
+  .username {
+    margin-left: 8px;
+    margin-right: 8px;
+  }
+  
+  @media (max-width: 768px) {
+    .username {
+      display: none;
+    }
+  }

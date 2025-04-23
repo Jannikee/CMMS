@@ -1,0 +1,13 @@
+.subsystem-form-container {
+    padding: 8px 0;
+  }
+  
+  .error-alert {
+    margin-bottom: 16px;
+  }
+  
+  .form-actions {
+    margin-top: 16px;
+    display: flex;
+    justify-content: flex-end;
+  }

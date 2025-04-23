@@ -6,6 +6,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from backend.models.machine import Machine, Subsystem, Component
 from backend.models.user import User
 from backend.database import db
+from backend.services.technical_id_service import TechnicalIDService
 import os
 import uuid
 import qrcode
@@ -15,53 +16,6 @@ import base64
 import re  # For technical ID validation
 
 machines_bp = Blueprint('machines', __name__)
-
-# Technical ID validation patterns
-MACHINE_ID_PATTERN = re.compile(r'^\d+$')
-SUBSYSTEM_ID_PATTERN = re.compile(r'^\d+\.\d+$')
-COMPONENT_ID_PATTERN = re.compile(r'^\d+\.\d+\.\d+$')
-
-def validate_technical_id(technical_id, level, parent_id=None):
-    """
-    Validate the technical ID format and hierarchy
-    
-    Parameters:
-    technical_id - ID to validate
-    level - 'machine', 'subsystem', or 'component'
-    parent_id - Parent technical ID (for subsystems/components)
-    
-    Returns:
-    (is_valid, error_message)
-    """
-    if not technical_id:
-        return False, "Technical ID is required"
-        
-    if level == 'machine':
-        if not MACHINE_ID_PATTERN.match(technical_id):
-            return False, "Machine technical ID must be a number (e.g., '1077')"
-        return True, None
-        
-    elif level == 'subsystem':
-        if not SUBSYSTEM_ID_PATTERN.match(technical_id):
-            return False, "Subsystem technical ID must be in format 'number.number' (e.g., '1077.01')"
-        
-        if parent_id:
-            if not technical_id.startswith(f"{parent_id}."):
-                return False, f"Subsystem technical ID must start with parent machine ID: {parent_id}."
-        
-        return True, None
-        
-    elif level == 'component':
-        if not COMPONENT_ID_PATTERN.match(technical_id):
-            return False, "Component technical ID must be in format 'number.number.number' (e.g., '1077.01.001')"
-        
-        if parent_id:
-            if not technical_id.startswith(f"{parent_id}."):
-                return False, f"Component technical ID must start with parent subsystem ID: {parent_id}."
-        
-        return True, None
-        
-    return False, "Invalid level specified"
 
 # Machine endpoints
 @machines_bp.route('/', methods=['GET'])
@@ -100,7 +54,7 @@ def create_machine():
     
     # Validate technical ID
     technical_id = data.get('technical_id')
-    is_valid, error_message = validate_technical_id(technical_id, 'machine')
+    is_valid, error_message = TechnicalIDService.validate_hierarchy(technical_id, 'machine')
     if not is_valid:
         return jsonify(message=error_message), 400
     
@@ -231,7 +185,7 @@ def create_subsystem(machine_id):
     
     # Validate technical ID
     technical_id = data.get('technical_id')
-    is_valid, error_message = validate_technical_id(technical_id, 'subsystem', machine.technical_id)
+    is_valid, error_message = TechnicalIDService.validate_hierarchy(technical_id, 'subsystem', machine.technical_id)
     if not is_valid:
         return jsonify(message=error_message), 400
     
@@ -333,7 +287,7 @@ def create_component(subsystem_id):
     
     # Validate technical ID
     technical_id = data.get('technical_id')
-    is_valid, error_message = validate_technical_id(technical_id, 'component', subsystem.technical_id)
+    is_valid, error_message = TechnicalIDService.validate_hierarchy(technical_id, 'component', subsystem.technical_id)
     if not is_valid:
         return jsonify(message=error_message), 400
     

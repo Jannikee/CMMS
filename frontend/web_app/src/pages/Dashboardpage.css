@@ -1,0 +1,118 @@
+.dashboard-container {
+    padding: 0 8px;
+  }
+  
+  .dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+  
+  .dashboard-header h2 {
+    margin-bottom: 0;
+  }
+  
+  .stats-row {
+    margin-bottom: 24px;
+  }
+  
+  .stat-card {
+    height: 100%;
+    transition: all 0.3s;
+  }
+  
+  .stat-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+  }
+  
+  .chart-card {
+    height: 280px;
+    margin-bottom: 24px;
+  }
+  
+  .uptime-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+  }
+  
+  .work-order-distribution {
+    height: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  
+  .distribution-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  
+  .distribution-item .label {
+    font-weight: 500;
+  }
+  
+  .distribution-bar {
+    height: 24px;
+    background-color: #f0f0f0;
+    border-radius: 4px;
+    margin-bottom: 16px;
+    display: flex;
+    overflow: hidden;
+  }
+  
+  .bar-segment {
+    height: 100%;
+    transition: width 0.5s ease;
+  }
+  
+  .bar-segment.open {
+    background-color: #1890ff;
+  }
+  
+  .bar-segment.in-progress {
+    background-color: #fa8c16;
+  }
+  
+  .bar-segment.completed {
+    background-color: #52c41a;
+  }
+  
+  .distribution-legend {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+  }
+  
+  .legend-item {
+    display: flex;
+    align-items: center;
+  }
+  
+  .color-box {
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    border-radius: 3px;
+  }
+  
+  .color-box.open {
+    background-color: #1890ff;
+  }
+  
+  .color-box.in-progress {
+    background-color: #fa8c16;
+  }
+  
+  .color-box.completed {
+    background-color: #52c41a;
+  }
+  
+  .table-card {
+    margin-bottom: 24px;
+  }

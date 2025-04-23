@@ -12,13 +12,14 @@ class TechnicalIDService:
     COMPONENT_ID_PATTERN = re.compile(r'^\d+\.\d+\.\d+$')
     
     @staticmethod
-    def validate_id(technical_id, level):
+    def validate_id(technical_id, level,parent_id=None):
         """
         Validate a technical ID format
         
         Parameters:
         technical_id - The ID to validate
         level - 'machine', 'subsystem', or 'component'
+        parent_id - Parent technical ID (for subsystems/components)
         
         Returns:
         (is_valid, error_message)

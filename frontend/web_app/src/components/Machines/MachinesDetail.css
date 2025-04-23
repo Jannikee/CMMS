@@ -1,0 +1,106 @@
+.machine-detail-container {
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  
+  .detail-card {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+  
+  .detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+  }
+  
+  .detail-header h2 {
+    margin-bottom: 4px;
+  }
+  
+  .technical-id {
+    color: #666;
+    font-size: 16px;
+  }
+  
+  .tab-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  
+  .tab-header h4 {
+    margin-bottom: 0;
+  }
+  
+  .empty-state {
+    text-align: center;
+    padding: 32px 0;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+  }
+  
+  .statistics-container {
+    margin-top: 16px;
+  }
+  
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  
+  .stat-card {
+    height: 100%;
+  }
+  
+  .loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 200px;
+  }
+  
+  .not-found {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+    gap: 16px;
+  }
+  
+  .qr-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  
+  .qr-image {
+    max-width: 250px;
+    margin-bottom: 16px;
+  }
+  
+  @media (max-width: 768px) {
+    .detail-header {
+      flex-direction: column;
+      gap: 16px;
+    }
+    
+    .detail-header .ant-space {
+      margin-top: 8px;
+    }
+    
+    .tab-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 16px;
+    }
+    
+    .stats-row {
+      grid-template-columns: 1fr;
+    }
+  }
