@@ -155,3 +155,12 @@ export const fetchComponentHierarchy = async (machineId) => {
     throw new Error(error.response?.data?.message || 'Failed to fetch component hierarchy');
   }
 };
+export const updateMachine = async (id, machineData) => {
+  try {
+    const response = await machineAPI.put(`/${id}`, machineData);
+    return response.data;
+  } catch (error) {
+    console.error(`Error updating machine ${id}:`, error);
+    throw new Error(error.response?.data?.message || 'Failed to update machine');
+  }
+};

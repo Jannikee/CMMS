@@ -2,9 +2,9 @@
 import React, { useState } from 'react';
 import { Upload, Button, Form, Select, message } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
-import { uploadComponentStructure } from '../../services/api';
+import { uploadComponentStructure } from '../../services/machineService';
 
-const ComponentStructureUpload = ({ machines, onUploadSuccess }) => {
+const ImportExcelTP = ({ machines, onUploadSuccess }) => {
   const [form] = Form.useForm();
   const [fileList, setFileList] = useState([]);
   const [uploading, setUploading] = useState(false);

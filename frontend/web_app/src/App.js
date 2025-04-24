@@ -8,7 +8,7 @@ import { AuthContext } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import WorkOrdersPage from './pages/WorkOrdersPage';
-//import MachinesPage from './pages/MachinesPage';
+import MachinesPage from './pages/MachinesPage';
 import MaintenancePage from './pages/MaintenancePage';
 import RCMPage from './pages/RCMPage';
 import ReportsPage from './pages/ReportsPage';
@@ -121,8 +121,11 @@ function App() {
                     <WorkOrdersPage />
                   </ProtectedRoute>
                 } />
-                
-
+                 <Route path="/machines/*" element={
+                  <ProtectedRoute>
+                    <MachinesPage />
+                  </ProtectedRoute>
+                } />
 
                 <Route path="/maintenance/*" element={
                   <ProtectedRoute>
@@ -135,6 +138,7 @@ function App() {
                     <RCMPage />
                   </ProtectedRoute>
                 } />
+                
                 <Route path="/reports/*" element={
                   <ProtectedRoute>
                     <ReportsPage />

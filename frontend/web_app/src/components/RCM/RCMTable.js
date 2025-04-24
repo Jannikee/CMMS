@@ -5,7 +5,7 @@ import { fetchRCMAnalysis, generateWorkOrders } from '../../services/api';
 
 const { Panel } = Collapse;
 
-const RCMAnalysisTable = ({ equipmentId }) => {
+const RCMTable = ({ equipmentId }) => {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [data, setData] = useState([]);
