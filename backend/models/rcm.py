@@ -2,12 +2,29 @@
 from backend.database import db
 from datetime import datetime,timezone
 
+
+class RCMUnit(db.Model):
+    """Model for units/equipment in RCM analysis"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    equipment_id = db.Column(db.Integer, db.ForeignKey('machine.id'))
+    technical_id = db.Column(db.String(50))
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
+    
+    # Relationships
+    functions = db.relationship('RCMFunction', backref='unit', lazy=True)
+    
+    def __repr__(self):
+        return f'<RCMUnit {self.name}>'
+
 class RCMFunction(db.Model):
     """Model for functions in RCM analysis"""
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
     equipment_id = db.Column(db.Integer, db.ForeignKey('machine.id'))
+    technical_id = db.Column(db.String(50))  # For alignment with technical structure
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))  #TIMEZONE UTC
     
     # Relationships
@@ -53,6 +70,12 @@ class RCMFailureEffect(db.Model):
     severity = db.Column(db.String(50))  # Low, Medium, High, Critical
     failure_mode_id = db.Column(db.Integer, db.ForeignKey('rcm_failure_mode.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))  #TIMEZONE UTC
+
+     # Add fields for consequences 
+    safety_impact = db.Column(db.String(50))
+    environmental_impact = db.Column(db.String(50))
+    operational_impact = db.Column(db.String(50))
+    economic_impact = db.Column(db.String(50))
     
     def __repr__(self):
         return f'<RCMFailureEffect {self.id}>'
@@ -67,6 +90,9 @@ class RCMMaintenance(db.Model):
     interval_hours = db.Column(db.Float)   # Frequency in equipment hours
     failure_mode_id = db.Column(db.Integer, db.ForeignKey('rcm_failure_mode.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))  #TIMEZONE UTC
+
+    # Added after changes
+    maintenance_strategy = db.Column(db.String(100))  # The recommended strategy
     
     def __repr__(self):
         return f'<RCMMaintenance {self.title}>'

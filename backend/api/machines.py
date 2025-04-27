@@ -339,3 +339,65 @@ def get_component(component_id):
     }
     
     return jsonify(component=result)
+#added qr
+@machines_bp.route('/qrcode/<qr_code>', methods=['GET'])
+@jwt_required()
+def get_machine_by_qrcode(qr_code):
+    """Get machine details by QR code"""
+    machine = Machine.query.filter_by(qr_code=qr_code).first()
+    
+    if not machine:
+        return jsonify(message="Machine not found for this QR code"), 404
+    
+    # Return machine details
+    result = {
+        'id': machine.id,
+        'name': machine.name,
+        'technical_id': machine.technical_id,
+        'location': machine.location,
+        'description': machine.description,
+        'installation_date': machine.installation_date.isoformat() if machine.installation_date else None,
+        'last_maintenance': machine.last_maintenance.isoformat() if machine.last_maintenance else None,
+        'hour_counter': machine.hour_counter,
+        'qr_code': machine.qr_code
+    }
+    
+    return jsonify(machine=result)
+
+@machines_bp.route('/<int:machine_id>/hours', methods=['PUT'])
+@jwt_required()
+def update_machine_hours(machine_id):
+    """Update machine hour counter"""
+    current_user_id = get_jwt_identity()
+    
+    machine = Machine.query.get(machine_id)
+    if not machine:
+        return jsonify(message="Machine not found"), 404
+    
+    data = request.get_json()
+    hour_counter = data.get('hour_counter')
+    
+    if hour_counter is None:
+        return jsonify(message="Hour counter value is required"), 400
+    
+    # Update the hour counter
+    machine.hour_counter = float(hour_counter)
+    
+    # Log the update as a maintenance activity
+    maintenance_log = MaintenanceLog(
+        description=f"Hour counter updated to {hour_counter}",
+        machine_id=machine_id,
+        performed_by=current_user_id,
+        maintenance_type="hour_update",
+        maintenance_category="monitoring",
+        hour_counter=float(hour_counter),
+        has_deviation=False
+    )
+    
+    db.session.add(maintenance_log)
+    db.session.commit()
+    
+    return jsonify(
+        message="Machine hour counter updated successfully",
+        hour_counter=machine.hour_counter
+    )

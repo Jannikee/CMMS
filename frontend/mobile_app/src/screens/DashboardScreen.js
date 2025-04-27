@@ -1,4 +1,248 @@
 import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
+import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+//import DailyMaintenanceScreen from './DailyMaintenanceScreen';
+import PeriodicMaintenanceScreen from './PeriodicMaintenanceScreen';
+import ReportingScreen from './FailureReportingScreen';
+
+const Tab = createMaterialTopTabNavigator();
+
+export default function DashboardScreen({ navigation }) {
+  const [selectedMachine, setSelectedMachine] = useState(null);
+  const [lastUpdateTime, setLastUpdateTime] = useState(null);
+  
+  useEffect(() => {
+    // Subscribe to navigation focus events to reload data when screen comes into focus
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadSelectedMachine();
+    });
+    
+    return unsubscribe;
+  }, [navigation]);
+  
+  const loadSelectedMachine = async () => {
+    try {
+      const machineData = await AsyncStorage.getItem('selectedMachine');
+      if (machineData) {
+        setSelectedMachine(JSON.parse(machineData));
+        
+        // Check last hours update time
+        const lastUpdateData = await AsyncStorage.getItem(`lastHoursUpdate_${JSON.parse(machineData).id}`);
+        if (lastUpdateData) {
+          setLastUpdateTime(new Date(JSON.parse(lastUpdateData).date));
+        }
+      }
+    } catch (error) {
+      console.error('Error loading selected machine:', error);
+    }
+  };
+  
+  const formatLastUpdate = () => {
+    if (!lastUpdateTime) return 'Not updated';
+    
+    const now = new Date();
+    const diffMs = now - lastUpdateTime;
+    const diffHours = diffMs / (1000 * 60 * 60);
+    
+    if (diffHours < 24) {
+      // If updated today, show the time
+      return `Today at ${lastUpdateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    } else if (diffHours < 48) {
+      // If updated yesterday
+      return 'Yesterday';
+    } else {
+      // Otherwise show the date
+      return lastUpdateTime.toLocaleDateString();
+    }
+  };
+  
+  // Custom header component that shows machine info
+  const DashboardHeader = () => (
+    <View style={styles.headerContainer}>
+      {selectedMachine ? (
+        <>
+          <View style={styles.machineInfoContainer}>
+            <Text style={styles.machineLabel}>Selected Machine:</Text>
+            <Text style={styles.machineName}>{selectedMachine.name}</Text>
+            <Text style={styles.machineId}>ID: {selectedMachine.technical_id}</Text>
+            
+            <View style={styles.hoursContainer}>
+              {selectedMachine.hour_counter && (
+                <Text style={styles.hoursText}>Current Hours: {selectedMachine.hour_counter}</Text>
+              )}
+              
+              <Text style={styles.lastUpdateText}>Last updated: {formatLastUpdate()}</Text>
+            </View>
+          </View>
+          
+          <View style={styles.actionsContainer}>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('QRScanner')}
+            >
+              <MaterialIcons name="qr-code-scanner" size={24} color="#5D6271" />
+              <Text style={styles.actionText}>Change Machine</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('UpdateHours', { machine: selectedMachine })}
+            >
+              <MaterialIcons name="update" size={24} color="#5D6271" />
+              <Text style={styles.actionText}>Update Hours</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      ) : (
+        <View style={styles.noMachineContainer}>
+          <Text style={styles.noMachineText}>No machine selected</Text>
+          <TouchableOpacity 
+            style={styles.scanButton}
+            onPress={() => navigation.navigate('QRScanner')}
+          >
+            <MaterialIcons name="qr-code-scanner" size={20} color="white" />
+            <Text style={styles.scanButtonText}>Scan QR Code</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+
+  return (
+    <View style={styles.container}>
+      <DashboardHeader />
+      
+      <Tab.Navigator
+        initialRouteName="DailyMaintenance"
+        screenOptions={{
+          tabBarActiveTintColor: '#5D6271',
+          tabBarInactiveTintColor: '#AAADB7',
+          tabBarIndicatorStyle: { backgroundColor: '#5D6271' },
+          tabBarLabelStyle: { fontSize: 12, fontWeight: '500' },
+        }}
+      >
+        <Tab.Screen 
+          name="DailyMaintenance" 
+          component={DailyMaintenanceScreen} 
+          options={{ 
+            tabBarLabel: 'Daily',
+            tabBarIcon: ({ color }) => (
+              <MaterialIcons name="today" size={20} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen 
+          name="PeriodicMaintenance" 
+          component={PeriodicMaintenanceScreen} 
+          options={{ 
+            tabBarLabel: 'Periodic',
+            tabBarIcon: ({ color }) => (
+              <MaterialIcons name="calendar-today" size={20} color={color} />
+            ),
+          }}
+        />
+        <Tab.Screen 
+          name="Reporting" 
+          component={ReportingScreen} 
+          options={{ 
+            tabBarLabel: 'Report Failure',
+            tabBarIcon: ({ color }) => (
+              <MaterialIcons name="report-problem" size={20} color={color} />
+            ),
+          }}
+        />
+      </Tab.Navigator>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F7FA',
+  },
+  headerContainer: {
+    backgroundColor: 'white',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
+  },
+  machineInfoContainer: {
+    marginBottom: 12,
+  },
+  machineLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+  machineName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  machineId: {
+    fontSize: 14,
+    color: '#666',
+  },
+  hoursContainer: {
+    marginTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  hoursText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#5D6271',
+  },
+  lastUpdateText: {
+    fontSize: 12,
+    color: '#888',
+    fontStyle: 'italic',
+  },
+  actionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F7FA',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  actionText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#5D6271',
+  },
+  noMachineContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  noMachineText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  scanButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#5D6271',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  scanButtonText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: 'white',
+  },
+});/*Testing if the new code works
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import WorkOrderItem from '../components/WorkOrderItems.js';
@@ -41,7 +285,8 @@ function DailyMaintenanceScreen() {
     </ScrollView>
   );
 }
-  /*
+*/
+  /* Testing for fake work orders
 export default function DailyMaintenanceScreen() {
   // Mock data - replace with API call to your Flask backend later  
   const workOrders = [
@@ -173,7 +418,7 @@ const styles = StyleSheet.create({
 });
   */
 
-
+/* Testing if the new code works
 function PeriodicMaintenanceScreen() {
   // Similar to DailyMaintenanceScreen but for periodic work orders
   return (
@@ -254,3 +499,4 @@ const styles = StyleSheet.create({
     color: '#666',
   }
 });
+*/

@@ -1,3 +1,4 @@
+// Updated frontend RCM service for unit-first structure
 import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -24,21 +25,48 @@ rcmAPI.interceptors.request.use(
   }
 );
 
-// Fetch RCM functions
-export const fetchRCMFunctions = async () => {
+// Fetch RCM units
+export const fetchRCMUnits = async (equipmentId = null) => {
   try {
-    const response = await rcmAPI.get('/functions');
+    let url = '/units';
+    if (equipmentId) {
+      url += `?equipment_id=${equipmentId}`;
+    }
+    
+    const response = await rcmAPI.get(url);
+    return response.data.units;
+  } catch (error) {
+    console.error('Error fetching RCM units:', error);
+    throw new Error(error.response?.data?.message || 'Failed to fetch RCM units');
+  }
+};
+
+// Create new RCM unit
+export const createRCMUnit = async (unitData) => {
+  try {
+    const response = await rcmAPI.post('/units', unitData);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating RCM unit:', error);
+    throw new Error(error.response?.data?.message || 'Failed to create RCM unit');
+  }
+};
+
+// Fetch functions for a specific unit
+export const fetchRCMFunctionsForUnit = async (unitId) => {
+  try {
+    const response = await rcmAPI.get(`/units/${unitId}/functions`);
     return response.data.functions;
   } catch (error) {
-    console.error('Error fetching RCM functions:', error);
+    console.error('Error fetching RCM functions for unit:', error);
     throw new Error(error.response?.data?.message || 'Failed to fetch RCM functions');
   }
 };
 
-// Create new RCM function
-export const createRCMFunction = async (functionData) => {
+// Create new function for a unit
+export const createRCMFunctionForUnit = async (unitId, functionData) => {
   try {
-    const response = await rcmAPI.post('/functions', functionData);
+    const response = await rcmAPI.post(`/units/${unitId}/functions`, functionData);
     return response.data;
   } catch (error) {
     console.error('Error creating RCM function:', error);
