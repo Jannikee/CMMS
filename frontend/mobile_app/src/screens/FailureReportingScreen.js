@@ -8,14 +8,16 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
-  Image
+  Image,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchRCMFunctions, fetchSubsystems, reportDeviation } from '../services/api';
 
-export default function ReportingScreen({ navigation }) {
+export default function FailureReportingScreen({ navigation }) {
   // Machine selection state
   const [selectedMachine, setSelectedMachine] = useState(null);
   
@@ -278,6 +280,8 @@ export default function ReportingScreen({ navigation }) {
         component_id: null, // You might want to add component selection
         description: description,
         severity: severity,
+        deviation_description: description,
+        has_deviation: true,
         failure_data: {
           function_id: selectedFunction ? selectedFunction.id : null,
           functional_failure_id: selectedFailure ? selectedFailure.id : null,
@@ -300,6 +304,80 @@ export default function ReportingScreen({ navigation }) {
         "Your failure report has been submitted successfully",
         [{ text: "OK", onPress: () => resetForm() }]
       );
+
+  const NoMachineSelected = () => (
+    <View style={styles.emptyContainer}>
+      <MaterialIcons name="qr-code-scanner" size={64} color="#CCCCCC" />
+      <Text style={styles.emptyTitle}>No Machine Selected</Text>
+      <Text style={styles.emptyMessage}>
+        Scan a machine QR code to report a failure
+      </Text>
+      <TouchableOpacity 
+        style={styles.scanButton}
+        onPress={() => navigation.navigate('QRScanner')}
+      >
+        <Text style={styles.scanButtonText}>Scan QR Code</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  // Render appropriate step based on current step state
+  const renderCurrentStep = () => {
+    if (!selectedMachine) {
+      return <NoMachineSelected />;
+    }
+
+    switch (currentStep) {
+      case 1:
+        return renderSubsystemStep();
+      case 2:
+        return renderFunctionStep();
+      case 3:
+        return renderFailureStep();
+      case 4:
+        return renderModeStep();
+      case 5:
+        return renderDetailsStep();
+      default:
+        return renderSubsystemStep();
+    }
+  };
+
+  // Navigation buttons for moving between steps
+  const renderNavButtons = () => {
+    if (!selectedMachine || currentStep === 5) return null;
+
+    return (
+      <View style={styles.navButtonsContainer}>
+        {currentStep > 1 && (
+          <TouchableOpacity
+            style={styles.navButton}
+            onPress={() => setCurrentStep(currentStep - 1)}
+          >
+            <MaterialIcons name="arrow-back" size={20} color="#5D6271" />
+            <Text style={styles.navButtonText}>Back</Text>
+          </TouchableOpacity>
+        )}
+        
+        {currentStep < 5 && skipToMode && (
+          <TouchableOpacity
+            style={styles.skipButton}
+            onPress={() => setCurrentStep(5)}
+          >
+            <Text style={styles.skipButtonText}>Skip to Details</Text>
+            <MaterialIcons name="skip-next" size={20} color="#5D6271" />
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      {renderCurrentStep()}
+      {renderNavButtons()}
+    </View>
+  );
     } catch (error) {
       console.error('Error submitting report:', error);
       Alert.alert('Error', 'Failed to submit report');
@@ -420,31 +498,35 @@ export default function ReportingScreen({ navigation }) {
   );
 
   const renderDetailsStep = () => (
-    <ScrollView style={styles.stepContainer} contentContainerStyle={styles.detailsContainer}>
-      <Text style={styles.stepTitle}>Failure Details</Text>
-      
-      <View style={styles.selectionSummary}>
-        <Text style={styles.summaryLabel}>Selection:</Text>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.stepContainer}
+    >
+      <ScrollView contentContainerStyle={styles.detailsContainer}>
+        <Text style={styles.stepTitle}>Failure Details</Text>
         
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryKey}>Subsystem:</Text>
-          <Text style={styles.summaryValue}>{selectedSubsystem?.name || 'Not selected'}</Text>
-        </View>
-        
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryKey}>Function:</Text>
-          <Text style={styles.summaryValue}>{selectedFunction?.name || 'Not selected'}</Text>
-        </View>
-        
-        {selectedFailure && (
+        <View style={styles.selectionSummary}>
+          <Text style={styles.summaryLabel}>Selection:</Text>
+          
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryKey}>Functional Failure:</Text>
-            <Text style={styles.summaryValue}>{selectedFailure.name}</Text>
+            <Text style={styles.summaryKey}>Subsystem:</Text>
+            <Text style={styles.summaryValue}>{selectedSubsystem?.name || 'Not selected'}</Text>
           </View>
-        )}
-        
-        {selectedMode && (
+          
           <View style={styles.summaryItem}>
+            <Text style={styles.summaryKey}>Function:</Text>
+            <Text style={styles.summaryValue}>{selectedFunction?.name || 'Not selected'}</Text>
+          </View>
+          
+          {selectedFailure && (
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryKey}>Functional Failure:</Text>
+              <Text style={styles.summaryValue}>{selectedFailure.name}</Text>
+            </View>
+          )}
+          
+          {selectedMode && (
+            <View style={styles.summaryItem}>
             <Text style={styles.summaryKey}>Failure Mode:</Text>
             <Text style={styles.summaryValue}>{selectedMode.name}</Text>
           </View>
@@ -523,4 +605,41 @@ export default function ReportingScreen({ navigation }) {
             <Text style={styles.imageButtonText}>Take Photo</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.imageButton} onPress={handleAd
+          <TouchableOpacity style={styles.imageButton} onPress={handleAddImage}>
+            <MaterialIcons name="photo-library" size={24} color="#5D6271" />
+            <Text style={styles.imageButtonText}>Upload Image</Text>
+          </TouchableOpacity>
+        </View>
+        
+        {images.length > 0 && (
+          <View style={styles.imagesContainer}>
+            {images.map((image, index) => (
+              <View key={index} style={styles.imageContainer}>
+                <Image source={{ uri: image.uri }} style={styles.imagePreview} />
+                <TouchableOpacity
+                  style={styles.removeImageButton}
+                  onPress={() => handleRemoveImage(index)}
+                >
+                  <MaterialIcons name="close" size={20} color="white" />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+      
+      <TouchableOpacity
+        style={styles.submitButton}
+        onPress={handleSubmitReport}
+        disabled={submitting}
+      >
+        {submitting ? (
+          <ActivityIndicator color="white" size="small" />
+        ) : (
+          <Text style={styles.submitButtonText}>Submit Report</Text>
+        )}
+      </TouchableOpacity>
+    </ScrollView>
+  </KeyboardAvoidingView>
+);
+}

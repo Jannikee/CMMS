@@ -32,6 +32,7 @@ class WorkOrderGenerator:
                         status='open',
                         priority='normal',
                         type='preventive',
+                        frequency= 'periodic',  # Added for mobile_app tabs
                         category='regular_maintenance',
                         machine_id=machine.id,
                         generation_source='hour_counter',
@@ -76,6 +77,7 @@ class WorkOrderGenerator:
                             status='open',
                             priority='normal',
                             type='preventive',
+                            frequency= 'periodic',  # Added for mobile_app tabs
                             category='regular_inspection',
                             machine_id=machine.id,
                             generation_source='calendar',
@@ -93,6 +95,7 @@ class WorkOrderGenerator:
                     status='open',
                     priority='high',
                     type='preventive',
+                    frequency= 'periodic',  # Added for mobile_app tabs
                     category='initial_inspection',
                     machine_id=machine.id,
                     generation_source='calendar',
@@ -144,6 +147,7 @@ class WorkOrderGenerator:
             status='open',
             priority=priority,
             type='corrective',
+            frequency= 'periodic',  # Added for mobile_app tabs UNSURE IF CORRECT HERE
             category='repair',
             machine_id=machine_id,
             component_id=component_id,
@@ -189,6 +193,7 @@ class WorkOrderGenerator:
                     status='scheduled',  # Use 'scheduled' for future work orders
                     priority='normal',
                     type='preventive',
+                    frequency= 'daily',  # Added for mobile_app tabs
                     category=maintenance_type,
                     machine_id=machine_id,
                     generation_source='maintenance_plan',
@@ -293,6 +298,7 @@ class WorkOrderGenerator:
                                     status='open',
                                     priority=priority,
                                     type=work_order_type,
+                                    frequency= 'periodic',  # Added for mobile_app tabs
                                     category='rcm_maintenance',
                                     machine_id=equipment_id,
                                     reason=f"RCM-based maintenance for {unit.name} > {function.name} > {failure.name} > {mode.name}",

@@ -3,9 +3,9 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-//import DailyMaintenanceScreen from './DailyMaintenanceScreen';
+import DailyMaintenanceScreen from './DailyMaintenanceScreen';
 import PeriodicMaintenanceScreen from './PeriodicMaintenanceScreen';
-import ReportingScreen from './FailureReportingScreen';
+import FailureReportingScreen from './FailureReportingScreen';
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -145,7 +145,7 @@ export default function DashboardScreen({ navigation }) {
         />
         <Tab.Screen 
           name="Reporting" 
-          component={ReportingScreen} 
+          component={FailureReportingScreen} 
           options={{ 
             tabBarLabel: 'Report Failure',
             tabBarIcon: ({ color }) => (
@@ -241,7 +241,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: 'white',
   },
-});/*Testing if the new code works
+});
+/*Testing if the new code works
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';

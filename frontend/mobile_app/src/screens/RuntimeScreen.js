@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -8,15 +8,17 @@ import {
   Alert, 
   ScrollView,
   ActivityIndicator,
-  Switch
+  Switch,
+  Image
 } from 'react-native';
 import { Camera } from 'expo-camera';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { updateMachineHours } from '../services/api';
 
 export default function UpdateHoursScreen({ route, navigation }) {
   const { machine } = route.params;
-  const [hours, setHours] = useState('');
+  const [hours, setHours] = useState(machine?.hour_counter?.toString() || '');
   const [useCamera, setUseCamera] = useState(false);
   const [hasPermission, setHasPermission] = useState(null);
   const [capturedImage, setCapturedImage] = useState(null);
@@ -25,7 +27,7 @@ export default function UpdateHoursScreen({ route, navigation }) {
   const cameraRef = useRef(null);
 
   // Check if we already updated hours today
-  React.useEffect(() => {
+  useEffect(() => {
     checkLastUpdate();
     
     // Request camera permission if using camera
@@ -119,21 +121,7 @@ export default function UpdateHoursScreen({ route, navigation }) {
       }
       
       // Call API to update machine hours
-      const response = await fetch(`http://127.0.0.1:5000/api/machines/${machine.id}/hours`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          hour_counter: parseFloat(hours)
-        })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update hours');
-      }
+      await updateMachineHours(token, machine.id, parseFloat(hours));
       
       // Save last update information
       const updateInfo = {
@@ -142,6 +130,13 @@ export default function UpdateHoursScreen({ route, navigation }) {
       };
       
       await AsyncStorage.setItem(`lastHoursUpdate_${machine.id}`, JSON.stringify(updateInfo));
+      
+      // Update the machine in AsyncStorage with new hour counter
+      const updatedMachine = {
+        ...machine,
+        hour_counter: parseFloat(hours)
+      };
+      await AsyncStorage.setItem('selectedMachine', JSON.stringify(updatedMachine));
       
       Alert.alert(
         "Hours Updated",

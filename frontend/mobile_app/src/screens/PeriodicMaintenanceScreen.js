@@ -185,8 +185,9 @@ export default function PeriodicMaintenanceScreen({ navigation }) {
         </View>
         
         <View style={styles.cardContent}>
-          <View style={styles.infoRow}>
-            <Text style={styles.progressLabel}>Progress</Text>
+          <View style={styles.progressSection}>
+            <View style={styles.progressLabelRow}>
+              <Text style={styles.progressLabel}>Progress</Text>
               <Text style={styles.timeRemaining}>{item.timeRemaining}</Text>
             </View>
             <ProgressBar 
@@ -440,21 +441,6 @@ const styles = StyleSheet.create({
   },
   cardContent: {
     marginBottom: 8,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  infoLabel: {
-    width: 80,
-    fontSize: 14,
-    color: '#666',
-  },
-  infoValue: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-    flex: 1,
   },
   progressSection: {
     marginTop: 8,

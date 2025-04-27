@@ -24,6 +24,7 @@ def get_work_orders():
     # Filter parameters
     status = request.args.get('status')
     machine_id = request.args.get('machine_id')
+    frequency = request.args.get('frequency')
     
     query = WorkOrder.query
     
@@ -31,6 +32,8 @@ def get_work_orders():
         query = query.filter(WorkOrder.status == status)
     if machine_id:
         query = query.filter(WorkOrder.machine_id == machine_id)
+    if frequency:
+        frequency = query.filter(WorkOrder.frequency == frequency) 
     
     # If user is a worker, only show assigned work orders... no need
     if user.role == 'worker':
@@ -109,6 +112,7 @@ def create_work_order():
         status='open',
         priority=data.get('priority', 'normal'),
         type=data.get('type'),
+        frequency=data.get('frequency', 'periodic'),  # Added fro mobile_app tabs
         category=data.get('category'),
         machine_id=machine.id,
         subsystem_id=subsystem.id if subsystem else None,
