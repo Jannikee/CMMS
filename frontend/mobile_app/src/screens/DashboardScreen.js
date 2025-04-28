@@ -74,32 +74,30 @@ export default function DashboardScreen({ navigation }) {
     <View style={styles.headerContainer}>
       {selectedMachine ? (
         <>
-          <View style={styles.machineInfoContainer}>
-            <Text style={styles.machineLabel}>Selected Machine:</Text>
-            <Text style={styles.machineName}>{selectedMachine.name}</Text>
-            <Text style={styles.machineId}>ID: {selectedMachine.technical_id}</Text>
-            
-            <View style={styles.hoursContainer}>
-              {selectedMachine.hour_counter && (
-                <Text style={styles.hoursText}>Current Hours: {selectedMachine.hour_counter}</Text>
+         <View style={styles.machineInfoContainer}>
+           <View style={styles.machineNameRow}>
+              <Text style={styles.machineName}>{selectedMachine.name}</Text>
+              {testMode && (
+                <View style={styles.testModeBadge}>
+                  <Text style={styles.testModeText}>Test Mode</Text>
+                </View>
               )}
-              
+            
+            </View>
+            <View style={styles.machineDetailsRow}>
+              <Text style={styles.machineDetails}>
+                ID: {selectedMachine.technical_id} • Hours: {selectedMachine.hour_counter}
+              </Text>
               <Text style={styles.lastUpdateText}>Last updated: {formatLastUpdate()}</Text>
             </View>
-            
-            {testMode && (
-              <View style={styles.testModeBadge}>
-                <Text style={styles.testModeText}>Test Mode</Text>
-              </View>
-            )}
           </View>
-          
+
           <View style={styles.actionsContainer}>
             <TouchableOpacity 
               style={styles.actionButton}
               onPress={() => navigation.navigate('MachineSelection')}
             >
-              <MaterialIcons name="swap-horiz" size={24} color="#5D6271" />
+              <MaterialIcons name="swap-horiz" size={16} color="#5D6271" />
               <Text style={styles.actionText}>Change Machine</Text>
             </TouchableOpacity>
             
@@ -107,7 +105,7 @@ export default function DashboardScreen({ navigation }) {
               style={styles.actionButton}
               onPress={() => navigation.navigate('Runtime', { machine: selectedMachine })}
             >
-              <MaterialIcons name="update" size={24} color="#5D6271" />
+              <MaterialIcons name="update" size={16} color="#5D6271" />
               <Text style={styles.actionText}>Update Hours</Text>
             </TouchableOpacity>
           </View>
@@ -120,7 +118,7 @@ export default function DashboardScreen({ navigation }) {
               style={styles.selectButton}
               onPress={() => navigation.navigate('MachineSelection')}
             >
-              <MaterialIcons name="list" size={20} color="white" />
+              <MaterialIcons name="list" size={14} color="white" />
               <Text style={styles.buttonText}>Select Machine</Text>
             </TouchableOpacity>
             
@@ -128,7 +126,7 @@ export default function DashboardScreen({ navigation }) {
               style={styles.scanButton}
               onPress={() => navigation.navigate('QRScanner')}
             >
-              <MaterialIcons name="qr-code-scanner" size={20} color="white" />
+              <MaterialIcons name="qr-code-scanner" size={14} color="white" />
               <Text style={styles.buttonText}>Scan QR Code</Text>
             </TouchableOpacity>
           </View>
@@ -148,7 +146,9 @@ export default function DashboardScreen({ navigation }) {
             tabBarActiveTintColor: '#5D6271',
             tabBarInactiveTintColor: '#AAADB7',
             tabBarIndicatorStyle: { backgroundColor: '#5D6271' },
-            tabBarLabelStyle: { fontSize: 12, fontWeight: '500' },
+            tabBarLabelStyle: { fontSize: 10, fontWeight: '500', marginTop: 0, padding: 0 },
+            tabBarIconStyle: { marginBottom: 0 },
+            tabBarStyle: { height: 40 }, // Make tabs smaller
           }}
         >
           <Tab.Screen 
@@ -157,7 +157,7 @@ export default function DashboardScreen({ navigation }) {
             options={{ 
               tabBarLabel: 'Daily',
               tabBarIcon: ({ color }) => (
-                <MaterialIcons name="today" size={20} color={color} />
+                <MaterialIcons name="today" size={16} color={color} />
               ),
             }}
           />
@@ -167,7 +167,7 @@ export default function DashboardScreen({ navigation }) {
             options={{ 
               tabBarLabel: 'Periodic',
               tabBarIcon: ({ color }) => (
-                <MaterialIcons name="calendar-today" size={20} color={color} />
+                <MaterialIcons name="calendar-today" size={16} color={color} />
               ),
             }}
           />
@@ -177,14 +177,14 @@ export default function DashboardScreen({ navigation }) {
             options={{ 
               tabBarLabel: 'Report Failure',
               tabBarIcon: ({ color }) => (
-                <MaterialIcons name="report-problem" size={20} color={color} />
+                <MaterialIcons name="report-problem" size={16} color={color} />
               ),
             }}
           />
         </Tab.Navigator>
       ) : (
         <View style={styles.noMachineContent}>
-          <MaterialIcons name="engineering" size={100} color="#CCCCCC" />
+          <MaterialIcons name="engineering" size={80} color="#CCCCCC" />
           <Text style={styles.noMachineTitle}>No Machine Selected</Text>
           <Text style={styles.noMachineDescription}>
             Please select a machine to view maintenance tasks and report issues.
@@ -192,7 +192,7 @@ export default function DashboardScreen({ navigation }) {
           
           {testMode && (
             <View style={styles.testModeInfoContainer}>
-              <MaterialIcons name="info" size={20} color="#5D6271" />
+              <MaterialIcons name="info" size={14} color="#5D6271" />
               <Text style={styles.testModeInfo}>
                 Test Mode is active. You can select machines without scanning QR codes.
               </Text>
@@ -211,142 +211,135 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     backgroundColor: 'white',
-    padding: 16,
+    padding: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#EEEEEE',
   },
   machineInfoContainer: {
-    marginBottom: 12,
+    flexDirection: 'column',
   },
-  machineLabel: {
-    fontSize: 14,
-    color: '#666',
-  },
-  machineName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  machineId: {
-    fontSize: 14,
-    color: '#666',
-  },
-  hoursContainer: {
-    marginTop: 8,
+  machineNameRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  hoursText: {
+  machineDetailsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  machineName: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#5D6271',
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  machineDetails: {
+    fontSize: 12,
+    color: '#666',
   },
   lastUpdateText: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#888',
     fontStyle: 'italic',
   },
   actionsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
+    justifyContent: 'flex-start',
+    marginTop: 4,
+    gap: 8,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F5F7FA',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
   },
   actionText: {
-    marginLeft: 8,
-    fontSize: 14,
+    marginLeft: 4,
+    fontSize: 10,
     color: '#5D6271',
   },
   noMachineContainer: {
     flexDirection: 'column',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
+    padding: 8,
   },
   noMachineText: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#666',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   noMachineButtonsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 12,
+    gap: 8,
   },
   selectButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#5D6271',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginRight: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 4,
   },
   scanButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#5D6271',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 4,
   },
   buttonText: {
-    marginLeft: 8,
-    fontSize: 14,
+    marginLeft: 4,
+    fontSize: 10,
     color: 'white',
   },
   noMachineContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: 16,
   },
   noMachineTitle: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#5D6271',
-    marginTop: 24,
-    marginBottom: 12,
+    marginTop: 12,
+    marginBottom: 8,
   },
   noMachineDescription: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#666',
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: 16,
   },
   testModeBadge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
     backgroundColor: '#5D6271',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
     borderRadius: 4,
   },
   testModeText: {
     color: 'white',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '500',
   },
   testModeInfoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#E6F7FF',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 16,
+    padding: 8,
+    borderRadius: 4,
+    marginTop: 8,
   },
   testModeInfo: {
-    marginLeft: 8,
-    fontSize: 14,
+    marginLeft: 4,
+    fontSize: 12,
     color: '#0066CC',
   },
 });/* trying test mode
