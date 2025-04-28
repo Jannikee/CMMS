@@ -16,7 +16,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { updateMachineHours } from '../services/api';
 
-export default function UpdateHoursScreen({ route, navigation }) {
+export default function RuntimeScreen({ route, navigation }) {
   const { machine } = route.params;
   const [hours, setHours] = useState(machine?.hour_counter?.toString() || '');
   const [useCamera, setUseCamera] = useState(false);
