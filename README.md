@@ -15,6 +15,41 @@ An in-depth paragraph about your project and overview of use. Put in later
 * VS Code
 * Git
 
+#### Node installation
+* if you dont have download and run the installer from [nodejs.org](https://nodejs.org/)
+Setting up Node.js in VSCode
+
+Setting up Node.js in VSCode
+1. **Restart VSCode** after installing Node.js
+
+2. **Configure Terminal in VSCode**:
+  - Open VSCode Settings (File > Preferences > Settings)
+  - Search for "terminal.integrated.defaultProfile"
+  - Set it according to your OS:
+    - Windows: Set to "Command Prompt" or "PowerShell"
+    - macOS/Linux: Set to "bash" or your preferred shell
+
+3. **Install Node.js Extension**:
+  - Press Ctrl+Shift+X to open Extensions
+  - Search for "Node.js"
+  - Install "Node.js Extension Pack" by Microsoft
+
+4. **Verify in VSCode Terminal**:
+  - Open a new terminal in VSCode (Terminal > New Terminal)
+  - Run `node --version` and `npm --version`
+  - If commands still don't work, try closing and reopening VSCode
+
+5. **Manual PATH configuration (if needed)**:
+  - In VSCode, go to Settings
+  - Search for "terminal.integrated.env"
+  - Add settings specific to your OS to include Node.js path:
+    - For Windows: 
+      ```json
+      "terminal.integrated.env.windows": {
+          "PATH": "${env:PATH};C:\\Program Files\\nodejs"
+      }
+      ```
+    - Adjust the path if Node.js is installed in a different location
 
 ### Backend setup
 
