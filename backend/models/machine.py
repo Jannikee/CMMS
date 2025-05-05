@@ -49,6 +49,7 @@ class Component(db.Model):
     name = db.Column(db.String(100), nullable=False)
     technical_id = db.Column(db.String(20), unique=True)  # e.g., "1077.01.001"
     location = db.Column(db.String(200))
+    description = db.Column(db.Text)
     function = db.Column(db.Text)
     installation_date = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     maintenance_requirements = db.Column(db.Text)

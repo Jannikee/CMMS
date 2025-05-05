@@ -138,7 +138,6 @@ export const uploadComponentStructure = async (formData) => {
     throw new Error(error.response?.data?.message || 'Failed to upload component structure');
   }
 };
-
 // Fetch component hierarchy for a machine
 export const fetchComponentHierarchy = async (machineId) => {
   try {

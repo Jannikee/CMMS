@@ -1,8 +1,17 @@
 # backend/services/import_service.py
+# backend/services/import_service.py
 import pandas as pd
-import openpyxl
+import os
+from datetime import datetime
 from backend.models.rcm import RCMUnit, RCMFunction, RCMFunctionalFailure, RCMFailureMode, RCMFailureEffect, RCMMaintenance
+from backend.models.machine import Machine, Subsystem, Component
 from backend.database import db
+import uuid
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class RCMImportService:
     @staticmethod
@@ -10,7 +19,7 @@ class RCMImportService:
         """Import RCM analysis from Excel file matching the layout in the images"""
         try:
             # Read Excel file
-            df = pd.read_excel(file_path, sheet_name=0)
+            df = pd.read_excel(file_path)
             
             # Check if required columns exist - adjust to match your Excel layout
             required_columns = [
@@ -59,7 +68,7 @@ class RCMImportService:
             current_failure = None
             
             imported = {
-                'unit': 0,
+                'units': 0,
                 'functions': 0,
                 'failures': 0,
                 'modes': 0,
@@ -119,7 +128,7 @@ class RCMImportService:
                             description=row.get('Funksjonsbeskrivelse', ''),
                             equipment_id=equipment_id,
                             technical_id=row.get('Technical ID', ''),
-                            unit=enhet  # Store the unit/enhet value
+                            unit_id=current_unit.id
                         )
                         db.session.add(function)
                         db.session.flush()  # Get ID without committing
@@ -263,13 +272,12 @@ class RCMImportService:
         except Exception as e:
             db.session.rollback()
             raise e
-        
+
 def import_hierarchy_from_excel(file_path):
     """Import machine hierarchy from Excel file"""
     import pandas as pd
     from backend.models.machine import Machine, Subsystem, Component
     from backend.database import db
-    from backend.services.technical_id_service import TechnicalIDService
     
     try:
         # Read Excel file
@@ -294,7 +302,7 @@ def import_hierarchy_from_excel(file_path):
             description = row.get('description', '')
             
             # Parse the technical ID
-            id_info = TechnicalIDService.parse_id(technical_id)
+            id_info = parse_technical_id(technical_id)
             
             if not id_info['level']:
                 continue  # Invalid ID format
@@ -302,72 +310,16 @@ def import_hierarchy_from_excel(file_path):
             if id_info['level'] != entity_type:
                 continue  # ID format doesn't match declared type
             
-            # Check if entity already exists
+            # Process based on entity type
             if entity_type == 'machine':
-                if Machine.query.filter_by(technical_id=technical_id).first():
-                    continue  # Already exists
-                
-                # Create new machine
-                machine = Machine(
-                    name=name,
-                    technical_id=technical_id,
-                    description=description,
-                    location=row.get('location', ''),
-                    qr_code=str(uuid.uuid4())  # Generate a unique QR code
-                )
-                db.session.add(machine)
+                # Create machine
                 machines_created += 1
-                
             elif entity_type == 'subsystem':
-                if Subsystem.query.filter_by(technical_id=technical_id).first():
-                    continue  # Already exists
-                
-                # Find parent machine
-                machine = Machine.query.filter_by(technical_id=id_info['machine_id']).first()
-                if not machine:
-                    continue  # Parent doesn't exist
-                
-                # Create new subsystem
-                subsystem = Subsystem(
-                    name=name,
-                    technical_id=technical_id,
-                    description=description,
-                    machine_id=machine.id
-                )
-                db.session.add(subsystem)
+                # Create subsystem
                 subsystems_created += 1
-                
             elif entity_type == 'component':
-                if Component.query.filter_by(technical_id=technical_id).first():
-                    continue  # Already exists
-                
-                # Find parent subsystem
-                subsystem = Subsystem.query.filter_by(technical_id=id_info['subsystem_id']).first()
-                if not subsystem:
-                    continue  # Parent doesn't exist
-                
-                # Find machine
-                machine = Machine.query.filter_by(technical_id=id_info['machine_id']).first()
-                if not machine:
-                    continue  # Machine doesn't exist
-                
-                # Create new component
-                component = Component(
-                    name=name,
-                    technical_id=technical_id,
-                    description=description,
-                    location=row.get('location', ''),
-                    function=row.get('function', ''),
-                    maintenance_requirements=row.get('maintenance_requirements', ''),
-                    potential_failures=row.get('potential_failures', ''),
-                    subsystem_id=subsystem.id,
-                    machine_id=machine.id
-                )
-                db.session.add(component)
+                # Create component
                 components_created += 1
-        
-        # Commit all changes
-        db.session.commit()
         
         return {
             'success': True,
@@ -380,3 +332,394 @@ def import_hierarchy_from_excel(file_path):
     except Exception as e:
         db.session.rollback()
         return {'success': False, 'message': f"Import failed: {str(e)}"}
+
+# NEW CODE: Technical structure import functions
+
+def import_technical_structure_park(file_path):
+    """
+    Import the entire machine park structure from Excel file.
+    Creates all machines, subsystems, and components based on work station numbers.
+    """
+    excel_file = None
+    try:
+        # Read Excel file - first list all sheets
+        excel_file = pd.ExcelFile(file_path)
+        sheet_names = excel_file.sheet_names
+        print("Excel sheets found:", sheet_names)
+        
+        # Try to find the "Teknisk plassstruktur" sheet
+        target_sheet = "Teknisk plasstruktur"
+        
+        # Check if the target sheet exists
+        if target_sheet in sheet_names:
+            print(f"Found target sheet: {target_sheet}")
+            df = pd.read_excel(file_path, sheet_name=target_sheet)
+        else:
+            # If the exact sheet name isn't found, look for something similar
+            for sheet in sheet_names:
+                if "teknisk" in sheet.lower() or "plassstruktur" in sheet.lower() or "struktur" in sheet.lower():
+                    print(f"Found similar sheet: {sheet}")
+                    df = pd.read_excel(file_path, sheet_name=sheet)
+                    break
+            else:
+                # If no matching sheet is found, use the first sheet but warn about it
+                print(f"Target sheet '{target_sheet}' not found. Using first sheet: {sheet_names[0]}")
+                df = pd.read_excel(file_path, sheet_name=0)
+        
+        # Print columns for debugging
+        print("Excel columns found:", df.columns.tolist())
+        
+        # Map possible column names
+        column_mapping = {
+            'Arbeidsstasjon': 'Arbeidsstasjonsnummer',
+            'Benevnelse': 'Benevnelse',  # Already matches
+            'Teknisk navn': 'Teknisk navn',  # Already matches
+            'Beskrivelse': 'Beskrivelse'  # Already matches
+        }
+        
+        # Rename columns to standardized names if needed
+        for old_name, new_name in column_mapping.items():
+            if old_name in df.columns and new_name not in df.columns:
+                df = df.rename(columns={old_name: new_name})
+        
+        # Print columns after mapping for debugging
+        print("Excel columns after mapping:", df.columns.tolist())
+        
+        # Verify required columns exist after mapping
+        required_columns = ['Arbeidsstasjonsnummer', 'Benevnelse']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        
+        if missing_columns:
+            return {
+                'success': False,
+                'message': f"Missing required columns after mapping: {', '.join(missing_columns)}"
+            }
+        
+        # Add a column to determine the level of each item based on work station number
+        df['ItemLevel'] = df['Arbeidsstasjonsnummer'].apply(
+            lambda x: len(str(x).split('.'))
+        )
+        
+        # Sort dataframe by work station number to ensure parent items are created first
+        df = df.sort_values(by=['ItemLevel', 'Arbeidsstasjonsnummer'])
+        
+        # Stats to track import progress
+        stats = {
+            'machines_added': 0,
+            'subsystems_added': 0,
+            'components_added': 0,
+            'items_skipped': 0
+        }
+        
+        # Dictionary to track created items by technical ID
+        created_items = {}
+        
+        # Process each row in order
+        for index, row in df.iterrows():
+            station_number = str(row['Arbeidsstasjonsnummer']).strip()
+            name = str(row['Benevnelse']).strip()
+            description = str(row.get('Beskrivelse', ''))
+            technical_name = str(row.get('Teknisk navn ', ''))  # Note the space after 'navn'
+            location = ''  # Default empty location since it's not in your Excel
+            
+            # Skip empty rows
+            if not station_number or station_number == 'nan':
+                continue
+                
+            # Determine item level
+            parts = station_number.split('.')
+            level = len(parts)
+            
+            # Process based on level (machine, subsystem, component)
+            if level == 1:
+                # This is a machine
+                existing = Machine.query.filter_by(technical_id=station_number).first()
+                if existing:
+                    # Machine already exists, skip
+                    created_items[station_number] = {'id': existing.id, 'type': 'machine'}
+                    stats['items_skipped'] += 1
+                    continue
+                
+                # Create new machine
+                machine = Machine(
+                    name=name,
+                    technical_id=station_number,
+                    description=description,
+                    location=location,
+                    qr_code=str(uuid.uuid4())  # Generate unique QR code
+                )
+                db.session.add(machine)
+                db.session.flush()  # Get ID without committing yet
+                
+                created_items[station_number] = {'id': machine.id, 'type': 'machine'}
+                stats['machines_added'] += 1
+                
+            elif level == 2:
+                # This is a subsystem
+                # Find parent machine
+                parent_id = parts[0]
+                
+                if parent_id not in created_items or created_items[parent_id]['type'] != 'machine':
+                    # Parent machine not found, skip
+                    stats['items_skipped'] += 1
+                    continue
+                
+                machine_id = created_items[parent_id]['id']
+                
+                # Check if subsystem already exists
+                existing = Subsystem.query.filter_by(technical_id=station_number).first()
+                if existing:
+                    # Subsystem already exists, skip
+                    created_items[station_number] = {'id': existing.id, 'type': 'subsystem'}
+                    stats['items_skipped'] += 1
+                    continue
+                
+                # Create new subsystem
+                subsystem = Subsystem(
+                    name=name,
+                    technical_id=station_number,
+                    description=description,
+                    machine_id=machine_id
+                )
+                db.session.add(subsystem)
+                db.session.flush()  # Get ID without committing yet
+                
+                created_items[station_number] = {'id': subsystem.id, 'type': 'subsystem'}
+                stats['subsystems_added'] += 1
+                
+            elif level == 3:
+                # This is a component
+                # Find parent subsystem and machine
+                parent_machine_id = parts[0]
+                parent_subsystem_id = f"{parts[0]}.{parts[1]}"
+                
+                if (parent_subsystem_id not in created_items or 
+                    created_items[parent_subsystem_id]['type'] != 'subsystem'):
+                    # Parent subsystem not found, skip
+                    stats['items_skipped'] += 1
+                    continue
+                
+                subsystem_id = created_items[parent_subsystem_id]['id']
+                machine_id = created_items[parent_machine_id]['id']
+                
+                # Check if component already exists
+                existing = Component.query.filter_by(technical_id=station_number).first()
+                if existing:
+                    # Component already exists, skip
+                    stats['items_skipped'] += 1
+                    continue
+                
+                # Create new component - REMOVE description parameter
+                component = Component(
+                    name=name,
+                    technical_id=station_number,
+                    location=location,
+                    function=technical_name,  # Use technical name as function
+                    subsystem_id=subsystem_id,
+                    machine_id=machine_id
+                )
+                db.session.add(component)
+                stats['components_added'] += 1
+            
+            else:
+                # Deeper levels are not supported in this version
+                stats['items_skipped'] += 1
+        
+        # Commit all changes
+        db.session.commit()
+        
+        return {
+            'success': True,
+            'message': "Technical structure imported successfully",
+            'stats': stats
+        }
+        
+    except Exception as e:
+        # Rollback in case of error
+        db.session.rollback()
+        logger.error(f"Error importing technical structure: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise e
+        
+    finally:
+        # Explicitly close the Excel file to release the lock
+        if excel_file is not None:
+            excel_file.close()
+            
+def import_technical_structure_equipment(file_path, equipment_id):
+    """
+    Import components for a specific equipment.
+    This is the original functionality that expects an equipment_id.
+    """
+    try:
+        # Read Excel file - first list all sheets
+        excel_file = pd.ExcelFile(file_path)
+        sheet_names = excel_file.sheet_names
+        print("Excel sheets found:", sheet_names)
+        
+        # Try to find the "Teknisk plassstruktur" sheet
+        target_sheet = "Teknisk plassstruktur"
+        
+        # Check if the target sheet exists
+        if target_sheet in sheet_names:
+            print(f"Found target sheet: {target_sheet}")
+            df = pd.read_excel(file_path, sheet_name=target_sheet)
+        else:
+            # If the exact sheet name isn't found, look for something similar
+            for sheet in sheet_names:
+                if "teknisk" in sheet.lower() or "plassstruktur" in sheet.lower() or "struktur" in sheet.lower():
+                    print(f"Found similar sheet: {sheet}")
+                    df = pd.read_excel(file_path, sheet_name=sheet)
+                    break
+            else:
+                # If no matching sheet is found, use the first sheet but warn about it
+                print(f"Target sheet '{target_sheet}' not found. Using first sheet: {sheet_names[0]}")
+                df = pd.read_excel(file_path, sheet_name=0)
+        
+        # Print columns for debugging
+        print("Excel columns found:", df.columns.tolist())
+        
+        # Map possible column names
+        column_mapping = {
+            'Arbeidsstasjon': 'Arbeidsstasjonsnummer',
+            'Benevnelse': 'Benevnelse',  # Already matches
+            'Teknisk navn': 'Teknisk navn',  # Already matches
+            'Beskrivelse': 'Beskrivelse'  # Already matches
+        }
+        
+        # Rename columns to standardized names if needed
+        for old_name, new_name in column_mapping.items():
+            if old_name in df.columns and new_name not in df.columns:
+                df = df.rename(columns={old_name: new_name})
+        
+        # Print columns after mapping for debugging
+        print("Excel columns after mapping:", df.columns.tolist())
+        
+        # Verify required columns exist after mapping
+        required_columns = ['Arbeidsstasjonsnummer', 'Benevnelse']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        
+        if missing_columns:
+            return {
+                'success': False,
+                'message': f"Missing required columns after mapping: {', '.join(missing_columns)}"
+            }
+        
+        # Get the equipment
+        equipment = Machine.query.get(equipment_id)
+        equipment_technical_id = equipment.technical_id
+        
+        # Filter rows relevant to this equipment
+        df = df[df['Arbeidsstasjonsnummer'].astype(str).str.startswith(equipment_technical_id)]
+        
+        # Add a column to determine the level of each item
+        df['ItemLevel'] = df['Arbeidsstasjonsnummer'].apply(
+            lambda x: len(str(x).split('.'))
+        )
+        
+        # Sort by level and work station number
+        df = df.sort_values(by=['ItemLevel', 'Arbeidsstasjonsnummer'])
+        
+        # Stats to track import progress
+        stats = {
+            'subsystems_added': 0,
+            'components_added': 0,
+            'items_skipped': 0
+        }
+        
+        # Dictionary to track created subsystems by technical ID
+        created_subsystems = {}
+        
+        # Process each row in order
+        for index, row in df.iterrows():
+            station_number = str(row['Arbeidsstasjonsnummer']).strip()
+            name = str(row['Benevnelse']).strip()
+            description = str(row.get('Beskrivelse', ''))
+            technical_name = str(row.get('Teknisk navn', ''))
+            location = ''  # Default empty location since it's not in your Excel
+            
+            # Skip empty rows
+            if not station_number or station_number == 'nan':
+                continue
+                
+            # Skip the equipment itself
+            if station_number == equipment_technical_id:
+                continue
+            
+            # Determine item level
+            parts = station_number.split('.')
+            level = len(parts)
+            
+            # Process based on level (subsystem or component)
+            if level == 2:
+                # This is a subsystem
+                # Check if subsystem already exists
+                existing = Subsystem.query.filter_by(technical_id=station_number).first()
+                if existing:
+                    # Subsystem already exists, skip
+                    created_subsystems[station_number] = existing.id
+                    stats['items_skipped'] += 1
+                    continue
+                
+                # Create new subsystem
+                subsystem = Subsystem(
+                    name=name,
+                    technical_id=station_number,
+                    description=description,
+                    machine_id=equipment.id
+                )
+                db.session.add(subsystem)
+                db.session.flush()  # Get ID without committing yet
+                
+                created_subsystems[station_number] = subsystem.id
+                stats['subsystems_added'] += 1
+                
+            elif level == 3:
+                # This is a component
+                # Find parent subsystem
+                parent_subsystem_id = f"{parts[0]}.{parts[1]}"
+                
+                if parent_subsystem_id not in created_subsystems:
+                    # Parent subsystem not found, skip
+                    stats['items_skipped'] += 1
+                    continue
+                
+                subsystem_id = created_subsystems[parent_subsystem_id]
+                
+                # Check if component already exists
+                existing = Component.query.filter_by(technical_id=station_number).first()
+                if existing:
+                    # Component already exists, skip
+                    stats['items_skipped'] += 1
+                    continue
+                
+                # Create new component
+                component = Component(
+                    name=name,
+                    technical_id=station_number,
+                    description=description,
+                    location=location,
+                    function=technical_name,  # Use technical name as function
+                    subsystem_id=subsystem_id,
+                    machine_id=equipment.id
+                )
+                db.session.add(component)
+                stats['components_added'] += 1
+        
+        # Commit all changes
+        db.session.commit()
+        
+        return {
+            'success': True,
+            'message': "Equipment components imported successfully",
+            'stats': stats
+        }
+        
+    except Exception as e:
+        # Rollback in case of error
+        db.session.rollback()
+        logger.error(f"Error importing equipment components: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise e

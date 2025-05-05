@@ -14,6 +14,7 @@ from PIL import Image
 from io import BytesIO
 import base64
 import re  # For technical ID validation
+from werkzeug.utils import secure_filename
 
 machines_bp = Blueprint('machines', __name__)
 
@@ -401,3 +402,102 @@ def update_machine_hours(machine_id):
         message="Machine hour counter updated successfully",
         hour_counter=machine.hour_counter
     )
+@machines_bp.route('/upload-structure', methods=['OPTIONS'])
+def options_upload_structure():
+    # Handle preflight request
+    response = jsonify({'message': 'OK'})
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'POST,OPTIONS')
+    return response
+
+@machines_bp.route('/upload-structure', methods=['POST'])
+@jwt_required()
+def upload_technical_structure():
+    from werkzeug.utils import secure_filename
+    
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    
+    # Only supervisors and admins can import structure
+    if user.role not in ['supervisor', 'admin']:
+        return jsonify(message="Unauthorized"), 403
+    
+    if 'file' not in request.files:
+        return jsonify(message="No file part"), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify(message="No selected file"), 400
+    
+    # Check file type
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        return jsonify(message="Invalid file format, only Excel files are allowed"), 400
+    
+    # Get import mode
+    import_mode = request.form.get('import_mode', 'equipment')
+    
+    # If equipment-specific mode, validate equipment_id
+    if import_mode == 'equipment':
+        equipment_id = request.form.get('equipment_id')
+        if not equipment_id:
+            return jsonify(message="Equipment ID is required for equipment-specific import"), 400
+        
+        # Verify the equipment exists
+        equipment = Machine.query.get(equipment_id)
+        if not equipment:
+            return jsonify(message="Equipment not found"), 404
+    
+    # Add the unique filename generation here
+    import uuid
+    unique_id = str(uuid.uuid4())
+    original_filename = file.filename
+    unique_filename = f"{unique_id}_{secure_filename(original_filename)}"
+    file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename)
+    
+    # Save file with the unique name
+    file.save(file_path)
+    
+    try:
+        # Import the services
+        from backend.services.import_service import import_technical_structure_park, import_technical_structure_equipment
+        
+        # Process the file based on import mode
+        if import_mode == 'park':
+            # Import entire machine park
+            result = import_technical_structure_park(file_path)
+        else:
+            # Import components for specific equipment
+            result = import_technical_structure_equipment(file_path, equipment_id)
+        
+        # Try to remove the temporary file but don't fail if it's locked
+        try:
+            os.remove(file_path)
+        except PermissionError:
+            # If we can't delete the file now, don't throw an error
+            print(f"Note: Could not immediately delete file {file_path} - it may be deleted later")
+        
+        if result['success']:
+            return jsonify(
+                message=result['message'],
+                imported=result['stats']
+            ), 201
+        else:
+            return jsonify(message=result['message']), 400
+        
+    except Exception as e:
+        # Enhanced error logging
+        print(f"ERROR in upload_technical_structure: {str(e)}")
+        print(f"ERROR type: {type(e).__name__}")
+        
+        import traceback
+        print("ERROR traceback:")
+        print(traceback.format_exc())
+        
+        # Try to remove file but don't worry if it fails
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except:
+            pass
+        
+        return jsonify(message=f"Error processing file: {str(e)}"), 500
