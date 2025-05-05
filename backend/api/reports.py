@@ -101,7 +101,7 @@ def get_work_order_statistics():
     start_date = datetime.fromisoformat(start_date_str) if start_date_str else None
     end_date = datetime.fromisoformat(end_date_str) if end_date_str else None
     
-    work_order_stats = MaintenanceStatistics.get_work_order_statistics(machine_id, start_date, end_date)
+    work_order_stats = MaintenanceStatistics.generate_work_order_statistics(machine_id, start_date, end_date)
     
     return jsonify(work_order_statistics=work_order_stats)
 
@@ -154,7 +154,7 @@ def get_dashboard_summary():
     start_date = end_date - timedelta(days=30)
     
     # Get work order counts by status
-    work_order_stats = MaintenanceStatistics.get_work_order_statistics(None, start_date, end_date)
+    work_order_stats = MaintenanceStatistics.generate_work_order_statistics(None, start_date, end_date)
     
     # Calculate totals
     total_work_orders = sum(stat['total_work_orders'] for stat in work_order_stats)

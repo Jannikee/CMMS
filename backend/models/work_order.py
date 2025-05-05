@@ -12,7 +12,7 @@ class WorkOrder(db.Model):
     due_date = db.Column(db.DateTime, nullable=False)
     status = db.Column(db.String(20), default='open')  # 'open', 'in_progress', 'completed'
     priority = db.Column(db.String(20), default='normal')  # 'low', 'normal', 'high', 'critical'
-    #downtime_hours = db.Column(db.Float, default=0)  # Downtime caused by this work order
+    downtime_hours = db.Column(db.Float, default=0)  # Downtime caused by this work order
     type = db.Column(db.String(20), nullable=False)  # 'preventive', 'predictive', 'corrective' skal ikke være synlig på mobile app?
     frequency = db.Column(db.String(20), default='periodic') # 'periodic' 'daily' for the tabs in mobile app
     category = db.Column(db.String(50))  # 'cleaning', 'inspection', 'lubrication', etc.

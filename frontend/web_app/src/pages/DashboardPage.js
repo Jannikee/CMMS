@@ -163,7 +163,7 @@ const DashboardPage = () => {
             <Card className="stat-card">
               <Statistic
                 title="Open Work Orders"
-                value={summaryData.work_orders.open}
+                value={summaryData.work_orders.open || 0}
                 prefix={<ClockCircleOutlined />}
                 valueStyle={{ color: '#1890ff' }}
               />
@@ -173,7 +173,7 @@ const DashboardPage = () => {
             <Card className="stat-card">
               <Statistic
                 title="In Progress"
-                value={summaryData.work_orders.in_progress}
+                value={summaryData.work_orders.in_progress|| 0}
                 prefix={<ToolOutlined />}
                 valueStyle={{ color: '#fa8c16' }}
               />
@@ -183,7 +183,7 @@ const DashboardPage = () => {
             <Card className="stat-card">
               <Statistic
                 title="Completed"
-                value={summaryData.work_orders.completed}
+                value={summaryData.work_orders.completed|| 0}
                 prefix={<CheckCircleOutlined />}
                 valueStyle={{ color: '#52c41a' }}
               />

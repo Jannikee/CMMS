@@ -17,11 +17,46 @@
     margin-bottom: 24px;
   }
   
-  .stat-card {
-    height: 100%;
-    transition: all 0.3s;
-  }
-  
+ /* Comprehensive fix for dashboard stat cards */
+.stat-card {
+  width: 100% !important;
+  margin-bottom: 16px;
+  height: 140px !important; /* Fixed height for consistency */
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 16px !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  overflow: visible !important;
+}
+
+/* Remove any padding that might be interfering */
+.stat-card .ant-card-body {
+  padding: 0 !important;
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Clear title formatting */
+.stat-card .ant-statistic-title {
+  text-align: center !important;
+  white-space: normal !important;
+  font-size: 14px !important;
+  line-height: 1.4 !important;
+  width: 100% !important;
+  margin-bottom: 12px !important;
+}
+
+/* Fix icon and value positioning */
+.stat-card .ant-statistic-content {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  width: 100% !important;
+}
+
   .stat-card:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     transform: translateY(-2px);
