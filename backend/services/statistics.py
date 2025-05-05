@@ -146,9 +146,10 @@ class MaintenanceStatistics:
                 })
         
         return failure_rates  
+    """"
     @staticmethod
     def get_uptime_statistics(machine_id=None, start_date=None, end_date=None):
-        """Calculate uptime statistics for machines"""
+        #Calculate uptime statistics for machines
         # Query completed work orders that caused downtime
         query = db.session.query(
             WorkOrder.machine_id,
@@ -205,7 +206,7 @@ class MaintenanceStatistics:
             })
         
         return uptime_stats
-    
+    """
     @staticmethod
     def get_mtbf_mttr(machine_id=None, start_date=None, end_date=None):
         """Calculate Mean Time Between Failures (MTBF) and Mean Time To Repair (MTTR)"""
@@ -284,7 +285,7 @@ class MaintenanceStatistics:
         return mtbf_mttr_stats
     
     @staticmethod
-    def generate_work_order_statistics(machine_id=None, start_date=None, end_date=None):
+    def get_work_order_statistics(machine_id=None, start_date=None, end_date=None):
         """Generate statistics about work orders"""
         # Query work orders
         query = db.session.query(

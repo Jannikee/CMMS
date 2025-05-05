@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Card, 
   Button, 
@@ -37,6 +37,9 @@ const { TabPane } = Tabs;
 const MachinesPage = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // State
   const [machines, setMachines] = useState([]);
   const [filteredMachines, setFilteredMachines] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -59,8 +62,11 @@ const MachinesPage = () => {
       }
     };
     
-    loadMachines();
-  }, []);
+    // Only load machines when on the main machines page
+    if (location.pathname === '/machines') {
+      loadMachines();
+    }
+  }, [location.pathname]);
 
   // Filter machines based on search text
   useEffect(() => {

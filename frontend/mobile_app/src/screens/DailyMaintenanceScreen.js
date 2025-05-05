@@ -7,13 +7,13 @@ import {
   TouchableOpacity, 
   Alert,
   ActivityIndicator,
-  Modal
+  Modal,
+  FlatList
 } from 'react-native';
 import { Checkbox } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchWorkOrders, completeWorkOrder } from '../services/api';
-import WorkOrderItem from '../components/WorkOrderItems';
 
 export default function DailyMaintenanceScreen({ navigation }) {
   const [workOrders, setWorkOrders] = useState([]);
@@ -129,6 +129,59 @@ export default function DailyMaintenanceScreen({ navigation }) {
     </View>
   );
 
+  const renderWorkOrderItem = ({ item }) => {
+    const isCompleted = item.status === 'completed';
+    
+    return (
+      <View style={styles.tableRow}>
+        <View style={styles.taskColumn}>
+          <Text style={styles.taskTitle} numberOfLines={1}>{item.title}</Text>
+          <Text style={styles.taskDetails}>
+            {item.type || 'Standard'} • {item.location || selectedMachine?.location || 'N/A'}
+          </Text>
+        </View>
+        
+        <View style={styles.actionsColumn}>
+          <TouchableOpacity
+            style={styles.infoButton}
+            onPress={() => handleViewDetails(item)}
+          >
+            <MaterialIcons name="info-outline" size={20} color="#5D6271" />
+          </TouchableOpacity>
+          
+          {completingOrder === item.id ? (
+            <ActivityIndicator size="small" color="#5D6271" />
+          ) : (
+            <Checkbox.Android
+              status={isCompleted ? 'checked' : 'unchecked'}
+              onPress={() => {
+                if (!isCompleted) {
+                  Alert.alert(
+                    'Complete Task',
+                    'Mark this maintenance task as completed?',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Complete', onPress: () => handleOrderComplete(item.id) }
+                    ]
+                  );
+                }
+              }}
+              color="#5D6271"
+              disabled={isCompleted}
+            />
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  const TableHeader = () => (
+    <View style={styles.tableHeader}>
+      <Text style={styles.headerTask}>Task</Text>
+      <Text style={styles.headerActions}>Actions</Text>
+    </View>
+  );
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -144,57 +197,21 @@ export default function DailyMaintenanceScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {workOrders.length === 0 ? (
-          <EmptyWorkOrders />
-        ) : (
-          workOrders.map(workOrder => (
-            <View key={workOrder.id} style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>{workOrder.title}</Text>
-                <TouchableOpacity onPress={() => handleViewDetails(workOrder)}>
-                  <MaterialIcons name="info" size={24} color="#5D6271" />
-                </TouchableOpacity>
-              </View>
-              
-              <View style={styles.cardContent}>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Type</Text>
-                  <Text style={styles.infoValue}>{workOrder.type || 'Standard'}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Location</Text>
-                  <Text style={styles.infoValue}>{workOrder.location || selectedMachine.location}</Text>
-                </View>
-              </View>
-              
-              <View style={styles.checkboxContainer}>
-                {completingOrder === workOrder.id ? (
-                  <ActivityIndicator size="small" color="#5D6271" />
-                ) : (
-                  <Checkbox.Android
-                    status={workOrder.status === 'completed' ? 'checked' : 'unchecked'}
-                    onPress={() => {
-                      if (workOrder.status !== 'completed') {
-                        Alert.alert(
-                          'Complete Task',
-                          'Mark this maintenance task as completed?',
-                          [
-                            { text: 'Cancel', style: 'cancel' },
-                            { text: 'Complete', onPress: () => handleOrderComplete(workOrder.id) }
-                          ]
-                        );
-                      }
-                    }}
-                    color="#5D6271"
-                    disabled={workOrder.status === 'completed'}
-                  />
-                )}
-              </View>
-            </View>
-          ))
-        )}
-      </ScrollView>
+      <View style={styles.machineInfoContainer}>
+        <Text style={styles.machineId}>
+          Maintenance tasks for {selectedMachine.name}
+        </Text>
+      </View>
+      
+      {workOrders.length > 0 && <TableHeader />}
+      
+      <FlatList
+        data={workOrders}
+        renderItem={renderWorkOrderItem}
+        keyExtractor={item => item.id.toString()}
+        contentContainerStyle={styles.listContainer}
+        ListEmptyComponent={EmptyWorkOrders}
+      />
 
       {/* Detail Modal */}
       <Modal
@@ -286,9 +303,72 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F7FA',
   },
+  machineInfoContainer: {
+    backgroundColor: 'white',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
+  },
+  machineId: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#EEEEEE',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#DDDDDD',
+  },
+  headerTask: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#666',
+    flex: 4,
+  },
+  headerActions: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#666',
+    flex: 1,
+    textAlign: 'center',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    backgroundColor: 'white',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
+    alignItems: 'center',
+  },
+  taskColumn: {
+    flex: 4,
+    paddingRight: 8,
+  },
+  actionsColumn: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  taskTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 2,
+  },
+  taskDetails: {
+    fontSize: 12,
+    color: '#666',
+  },
+  infoButton: {
+    padding: 4,
+  },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 32,
+    padding: 12,
+    paddingBottom: 24,
   },
   loadingContainer: {
     flex: 1,
@@ -305,7 +385,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    marginTop: 50,
   },
   emptyTitle: {
     fontSize: 18,
@@ -330,49 +409,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '500',
-  },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    flex: 1,
-    color: '#333',
-  },
-  cardContent: {
-    marginBottom: 8,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    marginBottom: 4,
-  },
-  infoLabel: {
-    width: 80,
-    fontSize: 14,
-    color: '#666',
-  },
-  infoValue: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-  },
-  checkboxContainer: {
-    alignSelf: 'flex-end',
   },
   modalOverlay: {
     flex: 1,
@@ -448,5 +484,8 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '500',
+  },
+  listContainer: {
+    flexGrow: 1,
   },
 });

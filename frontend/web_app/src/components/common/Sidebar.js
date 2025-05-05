@@ -17,6 +17,17 @@ const { Sider } = Layout;
 const Sidebar = ({ collapsed, userRole }) => {
   const location = useLocation();
   const currentPath = location.pathname;
+  
+  // Improved function to determine which menu item should be selected
+  const getSelectedKey = (path) => {
+    if (path === '/') return '/';
+    if (path.startsWith('/work-orders')) return '/work-orders';
+    if (path.startsWith('/machines')) return '/machines';
+    if (path.startsWith('/maintenance')) return '/maintenance';
+    if (path.startsWith('/rcm')) return '/rcm';
+    if (path.startsWith('/reports')) return '/reports';
+    return '/';
+  };
 
   // Define menu items available to all users
   const menuItems = [
@@ -40,8 +51,18 @@ const Sidebar = ({ collapsed, userRole }) => {
       icon: <ScheduleOutlined />,
       label: <Link to="/maintenance">Maintenance</Link>,
     },
+    {
+      key: '/rcm',
+      icon: <SettingOutlined />,
+      label: <Link to="/rcm">RCM Analysis</Link>,
+    },
+    {
+      key: '/reports',
+      icon: <BarChartOutlined />,
+      label: <Link to="/reports">Reports</Link>,
+    }
   ];
-
+  /*
   // Add admin/supervisor only menu items
   if (userRole === 'admin' || userRole === 'supervisor') {
     menuItems.push(
@@ -57,7 +78,7 @@ const Sidebar = ({ collapsed, userRole }) => {
       }
     );
   }
-
+  */
   return (
     <Sider
       collapsible
@@ -72,7 +93,7 @@ const Sidebar = ({ collapsed, userRole }) => {
       <Menu
         theme="dark"
         mode="inline"
-        selectedKeys={[currentPath.split('/')[1] ? `/${currentPath.split('/')[1]}` : '/']}
+        selectedKeys={[getSelectedKey(currentPath)]}
         items={menuItems}
       />
     </Sider>

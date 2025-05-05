@@ -35,7 +35,7 @@ def get_failure_rates():
     failure_rates = MaintenanceStatistics.get_failure_rates(machine_id, start_date, end_date)
     
     return jsonify(failure_rates=failure_rates)
-
+"""
 @reports_bp.route('/uptime', methods=['GET'])
 @jwt_required()
 def get_uptime_statistics():
@@ -58,7 +58,7 @@ def get_uptime_statistics():
     uptime_stats = MaintenanceStatistics.get_uptime_statistics(machine_id, start_date, end_date)
     
     return jsonify(uptime_statistics=uptime_stats)
-
+"""
 @reports_bp.route('/mtbf-mttr', methods=['GET'])
 @jwt_required()
 def get_mtbf_mttr():

@@ -6,12 +6,12 @@ from datetime import datetime,timezone
 class RCMUnit(db.Model):
     """Model for units/equipment in RCM analysis"""
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
+    name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
     equipment_id = db.Column(db.Integer, db.ForeignKey('machine.id'))
     technical_id = db.Column(db.String(50))
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
-    
+    unit_id = db.Column(db.Integer, db.ForeignKey('rcm_unit.id'))
     # Relationships
     functions = db.relationship('RCMFunction', backref='unit', lazy=True)
     
@@ -26,6 +26,7 @@ class RCMFunction(db.Model):
     equipment_id = db.Column(db.Integer, db.ForeignKey('machine.id'))
     technical_id = db.Column(db.String(50))  # For alignment with technical structure
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))  #TIMEZONE UTC
+    unit_id = db.Column(db.Integer, db.ForeignKey('rcm_unit.id'))
     
     # Relationships
     functional_failures = db.relationship('RCMFunctionalFailure', backref='function', lazy=True)

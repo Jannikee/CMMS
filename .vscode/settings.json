@@ -1,0 +1,18 @@
+{
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": true,
+    "python.terminal.activateEnvironment": true,
+    "python.analysis.autoImportCompletions": false,
+    "files.watcherExclude": {
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true,
+        "**/node_modules/**": true,
+        "**/venv/**": true,
+        "**/__pycache__/**": true,
+        "**/*.cpython-311.pyc": true
+    },
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}"
+    ],
+    "python.defaultInterpreterPath": "${workspaceFolder}/venv/Scripts/python.exe"
+}

@@ -1,13 +1,17 @@
 // Adjusted WorkOrderItems.js with smaller UI elements
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { Checkbox } from 'react-native-paper';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import { MaterialIcons } from '@expo/vector-icons';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export default function WorkOrderItem({ workOrder, onToggleComplete, onViewDetails }) {
-  const [checked, setChecked] = React.useState(workOrder.status === 'completed');
+  const [checked, setChecked] = useState(workOrder.status === 'completed');
 
   const handleCheck = () => {
+    if (workOrder.status === 'completed') return;
+    
     setChecked(!checked);
     if (onToggleComplete) {
       onToggleComplete(workOrder.id, !checked);
@@ -20,23 +24,30 @@ export default function WorkOrderItem({ workOrder, onToggleComplete, onViewDetai
     }
   };
 
+  // Calculate the progress bar colors based on progress
+  const getProgressColor = (progress) => {
+    if (progress > 0.75) return '#F44336'; // Red for high urgency
+    if (progress > 0.5) return '#FF9800';  // Orange for medium urgency
+    return '#4CAF50';                      // Green for low urgency
+  };
+
   return (
     <View style={styles.card}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{workOrder.title}</Text>
+      <View style={styles.cardHeader}>
+        <Text style={styles.cardTitle} numberOfLines={1}>{workOrder.title}</Text>
         <TouchableOpacity onPress={handleInfoPress}>
-          <Icon name="info" size={18} color="#5D6271" />
+          <MaterialIcons name="info-outline" size={16} color="#5D6271" />
         </TouchableOpacity>
       </View>
       
-      <View style={styles.content}>
+      <View style={styles.cardContent}>
         <View style={styles.infoRow}>
-          <Text style={styles.label}>Type</Text>
-          <Text style={styles.value}>{workOrder.type}</Text>
+          <Text style={styles.infoLabel}>Type</Text>
+          <Text style={styles.infoValue}>{workOrder.type || 'Standard'}</Text>
         </View>
         <View style={styles.infoRow}>
-          <Text style={styles.label}>Location</Text>
-          <Text style={styles.value}>{workOrder.location}</Text>
+          <Text style={styles.infoLabel}>Location</Text>
+          <Text style={styles.infoValue}>{workOrder.location || '-'}</Text>
         </View>
       </View>
       
@@ -50,23 +61,24 @@ export default function WorkOrderItem({ workOrder, onToggleComplete, onViewDetai
             <View 
               style={[
                 styles.progressFill, 
-                { width: `${workOrder.progress * 100}%` },
-                workOrder.progress > 0.75 ? styles.highProgress :
-                workOrder.progress > 0.5 ? styles.mediumProgress :
-                styles.lowProgress
+                { 
+                  width: `${workOrder.progress * 100}%`,
+                  backgroundColor: getProgressColor(workOrder.progress)
+                }
               ]} 
             />
           </View>
         </View>
       )}
       
-      <Checkbox.Android
-        status={checked ? 'checked' : 'unchecked'}
-        onPress={handleCheck}
-        color="#5D6271"
-        style={styles.checkbox}
-        uncheckedColor="#AAAAAA"
-      />
+      <View style={styles.checkboxContainer}>
+        <Checkbox.Android
+          status={checked ? 'checked' : 'unchecked'}
+          onPress={handleCheck}
+          color="#5D6271"
+          disabled={workOrder.status === 'completed'}
+        />
+      </View>
     </View>
   );
 }
@@ -74,48 +86,51 @@ export default function WorkOrderItem({ workOrder, onToggleComplete, onViewDetai
 const styles = StyleSheet.create({
   card: {
     backgroundColor: 'white',
-    borderRadius: 6,
-    padding: 10,
-    margin: 6,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    marginHorizontal: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 1,
-    elevation: 1,
+    shadowRadius: 2,
+    elevation: 2,
+    position: 'relative',
   },
-  header: {
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
-  title: {
+  cardTitle: {
     fontSize: 14,
     fontWeight: '500',
     color: '#333',
     flex: 1,
     marginRight: 8,
   },
-  content: {
-    marginBottom: 6,
+  cardContent: {
+    marginBottom: 8,
   },
   infoRow: {
     flexDirection: 'row',
     marginBottom: 2,
   },
-  label: {
+  infoLabel: {
     width: 60,
     fontSize: 12,
     color: '#666',
   },
-  value: {
+  infoValue: {
     fontSize: 12,
     color: '#333',
     fontWeight: '500',
+    flex: 1,
   },
   progressSection: {
-    marginTop: 6,
-    marginBottom: 6,
+    marginTop: 4,
+    marginBottom: 8,
   },
   progressLabelRow: {
     flexDirection: 'row',
@@ -123,11 +138,11 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   progressLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#666',
   },
   timeRemaining: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#666',
     fontStyle: 'italic',
   },
@@ -141,18 +156,9 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 3,
   },
-  lowProgress: {
-    backgroundColor: '#52c41a', // Green
-  },
-  mediumProgress: {
-    backgroundColor: '#FF9800', // Orange
-  },
-  highProgress: {
-    backgroundColor: '#F44336', // Red
-  },
-  checkbox: {
-    alignSelf: 'flex-end',
-    margin: 0,
-    padding: 0,
+  checkboxContainer: {
+    position: 'absolute',
+    bottom: 6,
+    right: 6,
   },
 });

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout, Spin, message } from 'antd';
@@ -121,7 +120,8 @@ function App() {
                     <WorkOrdersPage />
                   </ProtectedRoute>
                 } />
-                 <Route path="/machines/*" element={
+                
+                <Route path="/machines/*" element={
                   <ProtectedRoute>
                     <MachinesPage />
                   </ProtectedRoute>
@@ -144,6 +144,7 @@ function App() {
                     <ReportsPage />
                   </ProtectedRoute>
                 } />
+                
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </Content>
@@ -155,11 +156,3 @@ function App() {
 }
 
 export default App;
-/*
-                <Route path="/machines/*" element={
-                  <ProtectedRoute>
-                    <MachinesPage />
-                  </ProtectedRoute>
-                } />
-                
-*/

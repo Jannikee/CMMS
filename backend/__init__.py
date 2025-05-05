@@ -44,17 +44,28 @@ def create_app(config_class=Config):
     def invalid_token_callback(error_string):
         print(f"JWT Verification Failed: {error_string}")
         return jsonify({"message": "Token verification failed"}), 422
-    """
-    @jwt._token_verification_failed_callback
-    def _token_verification_failed_callback(jwt_header, jwt_payload):
-        print(f"JWT Verification Failed: {jwt_header} - Payload: {jwt_payload}")
-        return jsonify({"message": "Token verification failed"}), 422
-    """
+    
+   
     
     # Create database tables
     with app.app_context():
+        from backend.models.user import User
+        from backend.models.machine import Machine, Subsystem, Component
+        from backend.models.work_order import WorkOrder
+        from backend.models.maintenance_log import MaintenanceLog
+        from backend.models.failure import Failure, FailureImage
+        from backend.models.rcm import RCMUnit, RCMFunction, RCMFunctionalFailure, RCMFailureMode, RCMFailureEffect, RCMMaintenance
+        
+        try:
+            db.create_all()
+            print("Database tables created successfully!")
+        except Exception as e:
+            print(f"Error creating database tables: {e}")
+    """
+        # Create database tables
+    with app.app_context():
         db.create_all()
-    
+    """
     return app
 
     
