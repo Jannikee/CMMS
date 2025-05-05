@@ -1,3 +1,4 @@
+/*
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
@@ -10,8 +11,7 @@ import {
   ActivityIndicator,
   Image,
   KeyboardAvoidingView,
-  Platform,
-  SafeAreaView
+  Platform
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -305,24 +305,6 @@ export default function FailureReportingScreen({ navigation }) {
         "Your failure report has been submitted successfully",
         [{ text: "OK", onPress: () => resetForm() }]
       );
-    } catch (error) {
-      console.error('Error submitting report:', error);
-      Alert.alert('Error', 'Failed to submit report');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const resetForm = () => {
-    setSelectedSubsystem(null);
-    setSelectedFunction(null);
-    setSelectedFailure(null);
-    setSelectedMode(null);
-    setDescription('');
-    setSeverity('minor');
-    setImages([]);
-    setCurrentStep(1);
-  };
 
   const NoMachineSelected = () => (
     <View style={styles.emptyContainer}>
@@ -338,257 +320,6 @@ export default function FailureReportingScreen({ navigation }) {
         <Text style={styles.scanButtonText}>Scan QR Code</Text>
       </TouchableOpacity>
     </View>
-  );
-
-  // Render subsystem selection
-  const renderSubsystemStep = () => (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>Select Subsystem</Text>
-      
-      {loadingSubsystems ? (
-        <ActivityIndicator size="large" color="#5D6271" />
-      ) : (
-        <ScrollView style={styles.optionsContainer}>
-          {subsystems.map(subsystem => (
-            <TouchableOpacity
-              key={subsystem.id}
-              style={styles.optionItem}
-              onPress={() => handleSubsystemSelect(subsystem)}
-            >
-              <Text style={styles.optionText}>{subsystem.name}</Text>
-              <MaterialIcons name="chevron-right" size={24} color="#5D6271" />
-            </TouchableOpacity>
-          ))}
-          
-          {subsystems.length === 0 && (
-            <Text style={styles.emptyText}>No subsystems found</Text>
-          )}
-        </ScrollView>
-      )}
-    </View>
-  );
-
-  // Render function selection
-  const renderFunctionStep = () => (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>Select Function</Text>
-      
-      {loadingFunctions ? (
-        <ActivityIndicator size="large" color="#5D6271" />
-      ) : (
-        <ScrollView style={styles.optionsContainer}>
-          {functions.map(func => (
-            <TouchableOpacity
-              key={func.id}
-              style={styles.optionItem}
-              onPress={() => handleFunctionSelect(func)}
-            >
-              <Text style={styles.optionText}>{func.name}</Text>
-              <MaterialIcons name="chevron-right" size={24} color="#5D6271" />
-            </TouchableOpacity>
-          ))}
-          
-          {functions.length === 0 && (
-            <Text style={styles.emptyText}>No functions found</Text>
-          )}
-        </ScrollView>
-      )}
-    </View>
-  );
-
-  // Render failure selection
-  const renderFailureStep = () => (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>Select Functional Failure</Text>
-      
-      <ScrollView style={styles.optionsContainer}>
-        {functionalFailures.map(failure => (
-          <TouchableOpacity
-            key={failure.id}
-            style={styles.optionItem}
-            onPress={() => handleFailureSelect(failure)}
-          >
-            <Text style={styles.optionText}>{failure.name}</Text>
-            <MaterialIcons name="chevron-right" size={24} color="#5D6271" />
-          </TouchableOpacity>
-        ))}
-        
-        {functionalFailures.length === 0 && (
-          <Text style={styles.emptyText}>No functional failures found</Text>
-        )}
-      </ScrollView>
-    </View>
-  );
-
-  // Render mode selection
-  const renderModeStep = () => (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>Select Failure Mode</Text>
-      
-      <ScrollView style={styles.optionsContainer}>
-        {failureModes.map(mode => (
-          <TouchableOpacity
-            key={mode.id}
-            style={styles.optionItem}
-            onPress={() => handleModeSelect(mode)}
-          >
-            <Text style={styles.optionText}>{mode.name}</Text>
-            <MaterialIcons name="chevron-right" size={24} color="#5D6271" />
-          </TouchableOpacity>
-        ))}
-        
-        {failureModes.length === 0 && (
-          <Text style={styles.emptyText}>No failure modes found</Text>
-        )}
-      </ScrollView>
-    </View>
-  );
-
-  // Render details step
-  const renderDetailsStep = () => (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.stepContainer}
-    >
-      <ScrollView contentContainerStyle={styles.detailsContainer}>
-        <Text style={styles.stepTitle}>Failure Details</Text>
-        
-        <View style={styles.selectionSummary}>
-          <Text style={styles.summaryLabel}>Selection:</Text>
-          
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryKey}>Subsystem:</Text>
-            <Text style={styles.summaryValue}>{selectedSubsystem?.name || 'Not selected'}</Text>
-          </View>
-          
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryKey}>Function:</Text>
-            <Text style={styles.summaryValue}>{selectedFunction?.name || 'Not selected'}</Text>
-          </View>
-          
-          {selectedFailure && (
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryKey}>Functional Failure:</Text>
-              <Text style={styles.summaryValue}>{selectedFailure.name}</Text>
-            </View>
-          )}
-          
-          {selectedMode && (
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryKey}>Failure Mode:</Text>
-              <Text style={styles.summaryValue}>{selectedMode.name}</Text>
-            </View>
-            )}
-        </View>
-        
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>Failure Description</Text>
-          <TextInput
-            style={styles.textInput}
-            multiline
-            numberOfLines={4}
-            placeholder="Describe the failure in detail..."
-            value={description}
-            onChangeText={setDescription}
-          />
-        </View>
-        
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>Severity</Text>
-          
-          <View style={styles.severityContainer}>
-            <TouchableOpacity
-              style={[
-                styles.severityOption,
-                severity === 'minor' && styles.selectedSeverity
-              ]}
-              onPress={() => setSeverity('minor')}
-            >
-              <Text style={[
-                styles.severityText,
-                severity === 'minor' && styles.selectedSeverityText
-              ]}>
-                Minor
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[
-                styles.severityOption,
-                severity === 'major' && styles.selectedSeverity
-              ]}
-              onPress={() => setSeverity('major')}
-            >
-              <Text style={[
-                styles.severityText,
-                severity === 'major' && styles.selectedSeverityText
-              ]}>
-                Major
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[
-                styles.severityOption,
-                severity === 'critical' && styles.selectedSeverity
-              ]}
-              onPress={() => setSeverity('critical')}
-            >
-              <Text style={[
-                styles.severityText,
-                severity === 'critical' && styles.selectedSeverityText
-              ]}>
-                Critical
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-        
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>Attach Images</Text>
-          
-          <View style={styles.imageButtons}>
-            <TouchableOpacity style={styles.imageButton} onPress={handleTakePhoto}>
-              <MaterialIcons name="camera-alt" size={24} color="#5D6271" />
-              <Text style={styles.imageButtonText}>Take Photo</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.imageButton} onPress={handleAddImage}>
-              <MaterialIcons name="photo-library" size={24} color="#5D6271" />
-              <Text style={styles.imageButtonText}>Upload Image</Text>
-            </TouchableOpacity>
-          </View>
-          
-          {images.length > 0 && (
-            <View style={styles.imagesContainer}>
-              {images.map((image, index) => (
-                <View key={index} style={styles.imageContainer}>
-                  <Image source={{ uri: image.uri }} style={styles.imagePreview} />
-                  <TouchableOpacity
-                    style={styles.removeImageButton}
-                    onPress={() => handleRemoveImage(index)}
-                  >
-                    <MaterialIcons name="close" size={20} color="white" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-        
-        <TouchableOpacity
-          style={styles.submitButton}
-          onPress={handleSubmitReport}
-          disabled={submitting}
-        >
-          {submitting ? (
-            <ActivityIndicator color="white" size="small" />
-          ) : (
-            <Text style={styles.submitButtonText}>Submit Report</Text>
-          )}
-        </TouchableOpacity>
-      </ScrollView>
-    </KeyboardAvoidingView>
   );
 
   // Render appropriate step based on current step state
@@ -643,279 +374,274 @@ export default function FailureReportingScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.headerContainer}>
-        <Text style={styles.headerTitle}>Report Failure</Text>
-        {selectedMachine && (
-          <Text style={styles.machineInfo}>{selectedMachine.name} (ID: {selectedMachine.technical_id})</Text>
-        )}
-      </View>
+    <View style={styles.container}>
       {renderCurrentStep()}
       {renderNavButtons()}
-    </SafeAreaView>
+    </View>
   );
-}
+    } catch (error) {
+      console.error('Error submitting report:', error);
+      Alert.alert('Error', 'Failed to submit report');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F7FA',
-  },
-  headerContainer: {
-    backgroundColor: 'white',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  machineInfo: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
-  stepContainer: {
-    flex: 1,
-    padding: 16,
-  },
-  stepTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#5D6271',
-    marginBottom: 16,
-  },
-  optionsContainer: {
-    flex: 1,
-  },
-  optionItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  optionText: {
-    fontSize: 16,
-    color: '#333',
-    flex: 1,
-  },
-  emptyText: {
-    textAlign: 'center',
-    fontSize: 16,
-    color: '#666',
-    marginTop: 24,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#666',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptyMessage: {
-    fontSize: 16,
-    color: '#888',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  scanButton: {
-    backgroundColor: '#5D6271',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-  },
-  scanButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  navButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: 'white',
-    borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
-  },
-  navButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
-  },
-  navButtonText: {
-    marginLeft: 8,
-    fontSize: 16,
-    color: '#5D6271',
-  },
-  skipButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
-  },
-  skipButtonText: {
-    marginRight: 8,
-    fontSize: 16,
-    color: '#5D6271',
-  },
-  detailsContainer: {
-    paddingBottom: 24,
-  },
-  selectionSummary: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  summaryLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#5D6271',
-    marginBottom: 8,
-  },
-  summaryItem: {
-    flexDirection: 'row',
-    marginBottom: 4,
-  },
-  summaryKey: {
-    width: 120,
-    fontSize: 14,
-    color: '#666',
-  },
-  summaryValue: {
-    fontSize: 14,
-    color: '#333',
-    flex: 1,
-  },
-  formSection: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#5D6271',
-    marginBottom: 12,
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
-  severityContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  severityOption: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-    borderRadius: 8,
-    alignItems: 'center',
-    marginHorizontal: 4,
-  },
-  selectedSeverity: {
-    borderColor: '#5D6271',
-    backgroundColor: '#F0F2F5',
-  },
-  severityText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  selectedSeverityText: {
-    color: '#5D6271',
-    fontWeight: 'bold',
-  },
-  imageButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 16,
-  },
-  imageButton: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-    borderRadius: 8,
-    flex: 1,
-    marginHorizontal: 8,
-  },
-  imageButtonText: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#5D6271',
-  },
-  imagesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  imageContainer: {
-    width: 100,
-    height: 100,
-    margin: 4,
-    position: 'relative',
-  },
-  imagePreview: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 8,
-  },
-  removeImageButton: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 12,
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  submitButton: {
-    backgroundColor: '#5D6271',
-    paddingVertical: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  submitButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-});
+  const resetForm = () => {
+    setSelectedSubsystem(null);
+    setSelectedFunction(null);
+    setSelectedFailure(null);
+    setSelectedMode(null);
+    setDescription('');
+    setSeverity('minor');
+    setImages([]);
+    setCurrentStep(1);
+  };
+
+  const renderSubsystemStep = () => (
+    <View style={styles.stepContainer}>
+      <Text style={styles.stepTitle}>Select Subsystem</Text>
+      
+      {loadingSubsystems ? (
+        <ActivityIndicator size="large" color="#5D6271" />
+      ) : (
+        <ScrollView style={styles.optionsContainer}>
+          {subsystems.map(subsystem => (
+            <TouchableOpacity
+              key={subsystem.id}
+              style={styles.optionItem}
+              onPress={() => handleSubsystemSelect(subsystem)}
+            >
+              <Text style={styles.optionText}>{subsystem.name}</Text>
+              <MaterialIcons name="chevron-right" size={24} color="#5D6271" />
+            </TouchableOpacity>
+          ))}
+          
+          {subsystems.length === 0 && (
+            <Text style={styles.emptyText}>No subsystems found</Text>
+          )}
+        </ScrollView>
+      )}
+    </View>
+  );
+
+  const renderFunctionStep = () => (
+    <View style={styles.stepContainer}>
+      <Text style={styles.stepTitle}>Select Function</Text>
+      
+      {loadingFunctions ? (
+        <ActivityIndicator size="large" color="#5D6271" />
+      ) : (
+        <ScrollView style={styles.optionsContainer}>
+          {functions.map(func => (
+            <TouchableOpacity
+              key={func.id}
+              style={styles.optionItem}
+              onPress={() => handleFunctionSelect(func)}
+            >
+              <Text style={styles.optionText}>{func.name}</Text>
+              <MaterialIcons name="chevron-right" size={24} color="#5D6271" />
+            </TouchableOpacity>
+          ))}
+          
+          {functions.length === 0 && (
+            <Text style={styles.emptyText}>No functions found</Text>
+          )}
+        </ScrollView>
+      )}
+    </View>
+  );
+
+  const renderFailureStep = () => (
+    <View style={styles.stepContainer}>
+      <Text style={styles.stepTitle}>Select Functional Failure</Text>
+      
+      <ScrollView style={styles.optionsContainer}>
+        {functionalFailures.map(failure => (
+          <TouchableOpacity
+            key={failure.id}
+            style={styles.optionItem}
+            onPress={() => handleFailureSelect(failure)}
+          >
+            <Text style={styles.optionText}>{failure.name}</Text>
+            <MaterialIcons name="chevron-right" size={24} color="#5D6271" />
+          </TouchableOpacity>
+        ))}
+        
+        {functionalFailures.length === 0 && (
+          <Text style={styles.emptyText}>No functional failures found</Text>
+        )}
+      </ScrollView>
+    </View>
+  );
+
+  const renderModeStep = () => (
+    <View style={styles.stepContainer}>
+      <Text style={styles.stepTitle}>Select Failure Mode</Text>
+      
+      <ScrollView style={styles.optionsContainer}>
+        {failureModes.map(mode => (
+          <TouchableOpacity
+            key={mode.id}
+            style={styles.optionItem}
+            onPress={() => handleModeSelect(mode)}
+          >
+            <Text style={styles.optionText}>{mode.name}</Text>
+            <MaterialIcons name="chevron-right" size={24} color="#5D6271" />
+          </TouchableOpacity>
+        ))}
+        
+        {failureModes.length === 0 && (
+          <Text style={styles.emptyText}>No failure modes found</Text>
+        )}
+      </ScrollView>
+    </View>
+  );
+
+  const renderDetailsStep = () => (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.stepContainer}
+    >
+      <ScrollView contentContainerStyle={styles.detailsContainer}>
+        <Text style={styles.stepTitle}>Failure Details</Text>
+        
+        <View style={styles.selectionSummary}>
+          <Text style={styles.summaryLabel}>Selection:</Text>
+          
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryKey}>Subsystem:</Text>
+            <Text style={styles.summaryValue}>{selectedSubsystem?.name || 'Not selected'}</Text>
+          </View>
+          
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryKey}>Function:</Text>
+            <Text style={styles.summaryValue}>{selectedFunction?.name || 'Not selected'}</Text>
+          </View>
+          
+          {selectedFailure && (
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryKey}>Functional Failure:</Text>
+              <Text style={styles.summaryValue}>{selectedFailure.name}</Text>
+            </View>
+          )}
+          
+          {selectedMode && (
+            <View style={styles.summaryItem}>
+            <Text style={styles.summaryKey}>Failure Mode:</Text>
+            <Text style={styles.summaryValue}>{selectedMode.name}</Text>
+          </View>
+        )}
+      </View>
+      
+      <View style={styles.formSection}>
+        <Text style={styles.sectionTitle}>Failure Description</Text>
+        <TextInput
+          style={styles.textInput}
+          multiline
+          numberOfLines={4}
+          placeholder="Describe the failure in detail..."
+          value={description}
+          onChangeText={setDescription}
+        />
+      </View>
+      
+      <View style={styles.formSection}>
+        <Text style={styles.sectionTitle}>Severity</Text>
+        
+        <View style={styles.severityContainer}>
+          <TouchableOpacity
+            style={[
+              styles.severityOption,
+              severity === 'minor' && styles.selectedSeverity
+            ]}
+            onPress={() => setSeverity('minor')}
+          >
+            <Text style={[
+              styles.severityText,
+              severity === 'minor' && styles.selectedSeverityText
+            ]}>
+              Minor
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[
+              styles.severityOption,
+              severity === 'major' && styles.selectedSeverity
+            ]}
+            onPress={() => setSeverity('major')}
+          >
+            <Text style={[
+              styles.severityText,
+              severity === 'major' && styles.selectedSeverityText
+            ]}>
+              Major
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[
+              styles.severityOption,
+              severity === 'critical' && styles.selectedSeverity
+            ]}
+            onPress={() => setSeverity('critical')}
+          >
+            <Text style={[
+              styles.severityText,
+              severity === 'critical' && styles.selectedSeverityText
+            ]}>
+              Critical
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+      
+      <View style={styles.formSection}>
+        <Text style={styles.sectionTitle}>Attach Images</Text>
+        
+        <View style={styles.imageButtons}>
+          <TouchableOpacity style={styles.imageButton} onPress={handleTakePhoto}>
+            <MaterialIcons name="camera-alt" size={24} color="#5D6271" />
+            <Text style={styles.imageButtonText}>Take Photo</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.imageButton} onPress={handleAddImage}>
+            <MaterialIcons name="photo-library" size={24} color="#5D6271" />
+            <Text style={styles.imageButtonText}>Upload Image</Text>
+          </TouchableOpacity>
+        </View>
+        
+        {images.length > 0 && (
+          <View style={styles.imagesContainer}>
+            {images.map((image, index) => (
+              <View key={index} style={styles.imageContainer}>
+                <Image source={{ uri: image.uri }} style={styles.imagePreview} />
+                <TouchableOpacity
+                  style={styles.removeImageButton}
+                  onPress={() => handleRemoveImage(index)}
+                >
+                  <MaterialIcons name="close" size={20} color="white" />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+      
+      <TouchableOpacity
+        style={styles.submitButton}
+        onPress={handleSubmitReport}
+        disabled={submitting}
+      >
+        {submitting ? (
+          <ActivityIndicator color="white" size="small" />
+        ) : (
+          <Text style={styles.submitButtonText}>Submit Report</Text>
+        )}
+      </TouchableOpacity>
+    </ScrollView>
+  </KeyboardAvoidingView>
+);
+}
+*/

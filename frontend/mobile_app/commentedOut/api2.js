@@ -1,81 +1,12 @@
-// services/api.js
-// frontend/mobile_app/src/services/api.js
+/* trying test mode code
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { 
-  mockLogin,
-  getMockWorkOrders,
-  getMockWorkOrderById,
-  getMockMachineById,
-  updateMockMachineHours,
-  updateMockWorkOrderStatus,
-  getMockSubsystemsForMachine
-} from './mockDataService';
 
-const API_URL = '192.168.10.116:5000/api';
+const API_URL = 'http://127.0.0.1:5000/api';
 
-/**
- * Check if test mode is enabled
- */
-const isTestModeEnabled = async () => {
-  try {
-    const testMode = await AsyncStorage.getItem('testMode');
-    return testMode === 'true';
-  } catch (error) {
-    console.error('Error checking test mode:', error);
-    return false;
-  }
-};
-//test login
-export async function login(username, password) {
-  try {
-    // Check if we're in test mode
-    const testMode = await isTestModeEnabled();
-    
-    if (testMode) {
-      // Use mock login for testing
-      const mockResponse = mockLogin(username, password);
-      
-      // Store the mock token
-      await AsyncStorage.setItem('userToken', mockResponse.access_token);
-      await AsyncStorage.setItem('testUser', JSON.stringify({
-        username: mockResponse.username,
-        role: mockResponse.role
-      }));
-      
-      return mockResponse;
-    }
-    
-    // Real API call for non-test mode
-    const response = await fetch(`${API_URL}/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        username,
-        password,
-      }),
-    });
-
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || 'Login failed');
-    }
-    
-    // Store the token
-    await AsyncStorage.setItem('userToken', data.access_token);
-    return data;
-  } catch (error) {
-    console.error('Login error:', error);
-    throw error;
-  }
-}
-/* test login
 // User authentication
+ 
 export async function login(username, password) {
   try {
-    // We'll still use the real API for login even in test mode
     const response = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
       headers: {
@@ -101,21 +32,12 @@ export async function login(username, password) {
     throw error;
   }
 }
-*/
-/**
- * Work order functions
- */
+
+// Work order functions
+ 
 export async function fetchWorkOrders(token, type = 'daily', machineId = null) {
   try {
-    // Check if we're in test mode
-    const testMode = await isTestModeEnabled();
-    
-    if (testMode) {
-      // Return mock data
-      return getMockWorkOrders(type, machineId);
-    }
-    
-    // Real API call
+    // Build URL with query parameters
     let url = `${API_URL}/work-orders?type=${type}`;
     if (machineId) {
       url += `&machine_id=${machineId}`;
@@ -142,15 +64,6 @@ export async function fetchWorkOrders(token, type = 'daily', machineId = null) {
 
 export async function fetchWorkOrderDetail(token, workOrderId) {
   try {
-    // Check if we're in test mode
-    const testMode = await isTestModeEnabled();
-    
-    if (testMode) {
-      // Return mock data
-      return getMockWorkOrderById(workOrderId);
-    }
-    
-    // Real API call
     const response = await fetch(`${API_URL}/work-orders/${workOrderId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -172,15 +85,6 @@ export async function fetchWorkOrderDetail(token, workOrderId) {
 
 export async function completeWorkOrder(token, workOrderId, notes = "") {
   try {
-    // Check if we're in test mode
-    const testMode = await isTestModeEnabled();
-    
-    if (testMode) {
-      // Update mock data
-      return updateMockWorkOrderStatus(workOrderId, 'completed');
-    }
-    
-    // Real API call
     const response = await fetch(`${API_URL}/work-orders/${workOrderId}`, {
       method: 'PUT',
       headers: {
@@ -206,20 +110,10 @@ export async function completeWorkOrder(token, workOrderId, notes = "") {
   }
 }
 
-/**
- * Machine functions
- */
+//Machine functions
+ 
 export async function fetchMachine(token, machineId) {
   try {
-    // Check if we're in test mode
-    const testMode = await isTestModeEnabled();
-    
-    if (testMode) {
-      // Return mock data
-      return getMockMachineById(machineId);
-    }
-    
-    // Real API call
     const response = await fetch(`${API_URL}/machines/${machineId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -241,15 +135,6 @@ export async function fetchMachine(token, machineId) {
 
 export async function updateMachineHours(token, machineId, hours) {
   try {
-    // Check if we're in test mode
-    const testMode = await isTestModeEnabled();
-    
-    if (testMode) {
-      // Update mock data
-      return updateMockMachineHours(machineId, hours);
-    }
-    
-    // Real API call
     const response = await fetch(`${API_URL}/machines/${machineId}/hours`, {
       method: 'PUT',
       headers: {
@@ -276,15 +161,6 @@ export async function updateMachineHours(token, machineId, hours) {
 
 export async function fetchSubsystems(token, machineId) {
   try {
-    // Check if we're in test mode
-    const testMode = await isTestModeEnabled();
-    
-    if (testMode) {
-      // Return mock data
-      return getMockSubsystemsForMachine(machineId);
-    }
-    
-    // Real API call
     const response = await fetch(`${API_URL}/machines/${machineId}/subsystems`, {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -304,20 +180,80 @@ export async function fetchSubsystems(token, machineId) {
   }
 }
 
-/**
- * Reporting functions
- */
-export async function reportDeviation(token, reportData, images = []) {
+export async function fetchComponents(token, subsystemId) {
   try {
-    // Check if we're in test mode
-    const testMode = await isTestModeEnabled();
+    const response = await fetch(`${API_URL}/machines/subsystems/${subsystemId}/components`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
     
-    if (testMode) {
-      // Just return a successful response in test mode
-      return { success: true, message: "Deviation reported successfully (Test Mode)" };
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch components');
     }
     
-    // Real API call
+    return data.components;
+  } catch (error) {
+    console.error('Fetch components error:', error);
+    throw error;
+  }
+}
+
+//RCM Functions
+ 
+export async function fetchRCMFunctions(token, subsystemId) {
+  try {
+    const response = await fetch(`${API_URL}/rcm/functions?subsystem_id=${subsystemId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch RCM functions');
+    }
+    
+    return data.functions;
+  } catch (error) {
+    console.error('Fetch RCM functions error:', error);
+    throw error;
+  }
+}
+
+export async function fetchRCMAnalysis(token, machineId) {
+  try {
+    let url = `${API_URL}/rcm/analysis`;
+    if (machineId) {
+      url += `?equipment_id=${machineId}`;
+    }
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch RCM analysis');
+    }
+    
+    return data.rcm_analysis;
+  } catch (error) {
+    console.error('Fetch RCM analysis error:', error);
+    throw error;
+  }
+}
+
+// Reporting functions
+ 
+export async function reportDeviation(token, reportData, images = []) {
+  try {
     // If no images, use JSON content type
     if (images.length === 0) {
       const response = await fetch(`${API_URL}/maintenance`, {
@@ -388,12 +324,34 @@ export async function reportDeviation(token, reportData, images = []) {
   }
 }
 
-/**
- * QR Code functions
- */
+export async function fetchRecentMaintenanceLogs(token, limit = 5, machineId = null) {
+  try {
+    let url = `${API_URL}/maintenance?limit=${limit}`;
+    if (machineId) {
+      url += `&machine_id=${machineId}`;
+    }
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch maintenance logs');
+    }
+    
+    return data.maintenance_logs;
+  } catch (error) {
+    console.error('Fetch maintenance logs error:', error);
+    throw error;
+  }
+}
+
 export async function scanQRCode(token, qrData) {
   try {
-    // Test mode will still use real API for QR scanning, as it's not critical for testing
     const response = await fetch(`${API_URL}/machines/qrcode/${qrData}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -412,3 +370,87 @@ export async function scanQRCode(token, qrData) {
     throw error;
   }
 }
+*/
+   
+/* testing new code
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const API_URL = 'http://127.0.0.1:5000/api'; // Change this to your server address
+
+export async function login(username, password) {
+  try {
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        username,
+        password,
+      }),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Login failed');
+    }
+    
+    // Store the token
+    await AsyncStorage.setItem('userToken', data.access_token);
+    return data;
+  } catch (error) {
+    console.error('Login error:', error);
+    throw error;
+  }
+}
+
+export async function fetchWorkOrders(token, type = 'daily') {
+  try {
+    // We'll assume you have an endpoint that can filter by type
+    const response = await fetch(`${API_URL}/work-orders?type=${type}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch work orders');
+    }
+    
+    return data.work_orders;
+  } catch (error) {
+    console.error('Fetch work orders error:', error);
+    throw error;
+  }
+}
+
+export async function completeWorkOrder(token, workOrderId, notes = "") {
+  try {
+    const response = await fetch(`${API_URL}/work-orders/${workOrderId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        status: 'completed',
+        notes: notes,
+      }),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to update work order');
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Complete work order error:', error);
+    throw error;
+  }
+}
+*/ 

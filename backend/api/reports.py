@@ -35,30 +35,7 @@ def get_failure_rates():
     failure_rates = MaintenanceStatistics.get_failure_rates(machine_id, start_date, end_date)
     
     return jsonify(failure_rates=failure_rates)
-"""
-@reports_bp.route('/uptime', methods=['GET'])
-@jwt_required()
-def get_uptime_statistics():
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-    
-    # Only supervisors and admins can access reports
-    if user.role not in ['supervisor', 'admin']:
-        return jsonify(message="Unauthorized"), 403
-    
-    # Get filter parameters
-    machine_id = request.args.get('machine_id', type=int)
-    start_date_str = request.args.get('start_date')
-    end_date_str = request.args.get('end_date')
-    
-    # Parse dates if provided
-    start_date = datetime.fromisoformat(start_date_str) if start_date_str else None
-    end_date = datetime.fromisoformat(end_date_str) if end_date_str else None
-    
-    uptime_stats = MaintenanceStatistics.get_uptime_statistics(machine_id, start_date, end_date)
-    
-    return jsonify(uptime_statistics=uptime_stats)
-"""
+
 @reports_bp.route('/mtbf-mttr', methods=['GET'])
 @jwt_required()
 def get_mtbf_mttr():
@@ -166,9 +143,6 @@ def get_dashboard_summary():
     failure_rates = MaintenanceStatistics.get_failure_rates(None, start_date, end_date)
     total_failures = sum(rate['failure_count'] for rate in failure_rates)
     
-    # Get uptime statistics
-    uptime_stats = MaintenanceStatistics.get_uptime_statistics(None, start_date, end_date)
-    avg_uptime_percentage = sum(stat['uptime_percentage'] for stat in uptime_stats) / len(uptime_stats) if uptime_stats else 0
     
     dashboard_summary = {
         'period': {
@@ -184,9 +158,6 @@ def get_dashboard_summary():
         },
         'failures': {
             'total': total_failures
-        },
-        'uptime': {
-            'average_percentage': round(avg_uptime_percentage, 2)
         }
     }
     

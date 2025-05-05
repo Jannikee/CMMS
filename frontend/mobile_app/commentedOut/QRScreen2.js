@@ -1,7 +1,8 @@
+/*Trying test mode
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Camera } from 'expo-camera';
-//import { BarCodeScanner } from 'expo-barcode-scanner';
+import { BarCodeScanner } from 'expo-barcode-scanner';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialIcons } from '@expo/vector-icons';
 
@@ -69,7 +70,7 @@ export default function QRScannerScreen({ navigation }) {
         [
           {
             text: "Update Hours",
-            onPress: () => navigation.navigate('Runtime', { machine: machineData.machine })
+            onPress: () => navigation.navigate('UpdateHours', { machine: machineData.machine })
           },
           {
             text: "Continue",
@@ -95,20 +96,7 @@ export default function QRScannerScreen({ navigation }) {
   
   const updateHours = () => {
     if (selectedMachine) {
-      navigation.navigate('Runtime', { machine: selectedMachine });
-    }
-  };
-
-  const enableTestMode = async () => {
-    try {
-      // Set test mode flag
-      await AsyncStorage.setItem('testMode', 'true');
-      
-      // Navigate to machine selection screen
-      navigation.navigate('MachineSelection');
-    } catch (error) {
-      console.error('Error enabling test mode:', error);
-      Alert.alert('Error', 'Failed to enable test mode');
+      navigation.navigate('UpdateHours', { machine: selectedMachine });
     }
   };
 
@@ -120,20 +108,11 @@ export default function QRScannerScreen({ navigation }) {
     return (
       <View style={styles.container}>
         <Text style={styles.errorText}>Camera access is required to scan QR codes.</Text>
-        
         <TouchableOpacity 
-          style={styles.testModeButton}
-          onPress={enableTestMode}
-        >
-          <MaterialIcons name="bug-report" size={24} color="white" />
-          <Text style={styles.testModeButtonText}>Enable Test Mode</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.button, styles.secondaryButton]}
+          style={styles.button}
           onPress={() => navigation.navigate('Dashboard')}
         >
-          <Text style={styles.secondaryButtonText}>Back to Dashboard</Text>
+          <Text style={styles.buttonText}>Continue Without Scanning</Text>
         </TouchableOpacity>
       </View>
     );
@@ -180,11 +159,10 @@ export default function QRScannerScreen({ navigation }) {
             <Camera
               style={styles.camera}
               type={Camera.Constants.Type.back}
-              onBarCodeScanned={handleBarCodeScanned}
               barCodeScannerSettings={{
-                barCodeTypes: ['qr'],
-               }}
-             //onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
+                barCodeTypes: [BarCodeScanner.Constants.BarCodeType.qr],
+              }}
+              onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
             >
               <View style={styles.overlay}>
                 <View style={styles.unfilled} />
@@ -199,18 +177,10 @@ export default function QRScannerScreen({ navigation }) {
           </View>
           
           <TouchableOpacity 
-            style={styles.testModeButton}
-            onPress={enableTestMode}
-          >
-            <MaterialIcons name="bug-report" size={24} color="white" />
-            <Text style={styles.testModeButtonText}>Enable Test Mode</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
             style={styles.secondaryButton}
             onPress={() => navigation.navigate('Dashboard')}
           >
-            <Text style={styles.secondaryButtonText}>Back to Dashboard</Text>
+            <Text style={styles.secondaryButtonText}>Skip for Now</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -317,19 +287,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
   },
-  testModeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FF9800',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  testModeButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '500',
-    marginLeft: 8,
-  },
 });
+*/

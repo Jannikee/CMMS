@@ -364,46 +364,7 @@ class ReportGenerator:
             
         elements.append(Spacer(1, 24))
         
-        # Uptime statistics
-        elements.append(Paragraph("Uptime Statistics", styles['Heading2']))
-        elements.append(Spacer(1, 12))
         
-        uptime_stats = MaintenanceStatistics.get_uptime_statistics(machine_id, start_date, end_date)
-        
-        if uptime_stats:
-            # Create summary table
-            uptime_data = [
-                ['Machine', 'Period (hours)', 'Uptime (hours)', 'Downtime (hours)', 'Uptime %']
-            ]
-            
-            for stat in uptime_stats:
-                row = [
-                    stat['machine_name'],
-                    stat['period_hours'],
-                    stat['uptime_hours'],
-                    stat['downtime_hours'],
-                    f"{stat['uptime_percentage']}%"
-                ]
-                uptime_data.append(row)
-            
-            # Create table
-            uptime_table = Table(uptime_data)
-            uptime_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 12),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
-            ]))
-            
-            elements.append(uptime_table)
-        else:
-            elements.append(Paragraph("No uptime data available for the selected period.", styles['Normal']))
-        
-        elements.append(Spacer(1, 24))
         
         # Work Order Distribution
         elements.append(Paragraph("Work Order Distribution", styles['Heading2']))

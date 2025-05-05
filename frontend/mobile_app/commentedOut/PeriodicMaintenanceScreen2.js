@@ -1,3 +1,4 @@
+/* Similar to daily maintence
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
@@ -23,6 +24,7 @@ export default function PeriodicMaintenanceScreen({ navigation }) {
   const [selectedMachine, setSelectedMachine] = useState(null);
   const [completingOrder, setCompletingOrder] = useState(false);
 
+  
   useEffect(() => {
     loadSelectedMachine();
   }, []);
@@ -164,39 +166,41 @@ export default function PeriodicMaintenanceScreen({ navigation }) {
     }
   };
 
-  // Determine progress bar color based on progress value
-  const getProgressColor = (progress) => {
-    if (progress > 0.75) {
-      return '#F44336'; // Red for high urgency
-    } else if (progress > 0.5) {
-      return '#FF9800'; // Orange for medium urgency
-    }
-    return '#4CAF50'; // Green for low urgency
-  };
-
   const renderWorkOrderItem = ({ item }) => {
+    // Determine progress bar color based on progress value
+    let progressColor = '#4CAF50'; // Green for low urgency
+    if (item.progress > 0.75) {
+      progressColor = '#F44336'; // Red for high urgency
+    } else if (item.progress > 0.5) {
+      progressColor = '#FF9800'; // Orange for medium urgency
+    }
+    
     const isChecked = item.status === 'completed';
-    const progressColor = getProgressColor(item.progress);
     
     return (
-      <View style={styles.tableRow}>
-        <View style={styles.titleColumn}>
-          <Text style={styles.taskTitle} numberOfLines={1}>{item.title}</Text>
-          <Text style={styles.taskType}>{item.type || 'Maintenance'}</Text>
-        </View>
-        
-        <View style={styles.progressColumn}>
-          <View style={styles.progressBarContainer}>
-            <View style={[styles.progressFill, { width: `${item.progress * 100}%`, backgroundColor: progressColor }]} />
-          </View>
-          <Text style={styles.timeRemaining}>{item.timeRemaining}</Text>
-        </View>
-        
-        <View style={styles.actionsColumn}>
-          <TouchableOpacity style={styles.infoButton} onPress={() => handleInfoPress(item)}>
-            <MaterialIcons name="info-outline" size={18} color="#5D6271" />
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>{item.title}</Text>
+          <TouchableOpacity onPress={() => handleInfoPress(item)}>
+            <MaterialIcons name="info-outline" size={24} color="#5D6271" />
           </TouchableOpacity>
-          
+        </View>
+        
+        <View style={styles.cardContent}>
+          <View style={styles.progressSection}>
+            <View style={styles.progressLabelRow}>
+              <Text style={styles.progressLabel}>Progress</Text>
+              <Text style={styles.timeRemaining}>{item.timeRemaining}</Text>
+            </View>
+            <ProgressBar 
+              progress={item.progress} 
+              color={progressColor}
+              style={styles.progressBar} 
+            />
+          </View>
+        </View>
+        
+        <View style={styles.checkboxContainer}>
           {completingOrder === item.id ? (
             <ActivityIndicator size="small" color="#5D6271" />
           ) : (
@@ -238,14 +242,6 @@ export default function PeriodicMaintenanceScreen({ navigation }) {
     </View>
   );
 
-  const TableHeader = () => (
-    <View style={styles.tableHeader}>
-      <Text style={styles.headerTitle}>Task</Text>
-      <Text style={styles.headerProgress}>Progress</Text>
-      <Text style={styles.headerActions}>Actions</Text>
-    </View>
-  );
-
   return (
     <View style={styles.container}>
       {loading ? (
@@ -257,7 +253,7 @@ export default function PeriodicMaintenanceScreen({ navigation }) {
         <>
           {selectedMachine ? (
             <>
-              <View style={styles.machineInfoContainer}>
+              {/*<View style={styles.machineInfoContainer}>
                 <Text style={styles.machineLabel}>Selected Machine:</Text>
                 <Text style={styles.machineName}>{selectedMachine.name}</Text>
                 <Text style={styles.machineId}>ID: {selectedMachine.technical_id}</Text>
@@ -265,9 +261,7 @@ export default function PeriodicMaintenanceScreen({ navigation }) {
                   <Text style={styles.machineHours}>Hours: {selectedMachine.hour_counter}</Text>
                 )}
               </View>
-              
-              {workOrders.length > 0 && <TableHeader />}
-              
+              *}
               <FlatList
                 data={workOrders}
                 renderItem={renderWorkOrderItem}
@@ -282,7 +276,7 @@ export default function PeriodicMaintenanceScreen({ navigation }) {
         </>
       )}
       
-      {/* Details Modal */}
+      {// Details Modal }
       <Modal
         animationType="slide"
         transparent={true}
@@ -397,109 +391,84 @@ const styles = StyleSheet.create({
   },
   machineInfoContainer: {
     backgroundColor: 'white',
-    padding: 12,
+    padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#EEEEEE',
   },
   machineLabel: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#666',
   },
   machineName: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
   },
   machineId: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#666',
   },
   machineHours: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#666',
-    marginTop: 2,
+    marginTop: 4,
   },
-  tableHeader: {
-    flexDirection: 'row',
-    backgroundColor: '#EEEEEE',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#DDDDDD',
+  listContainer: {
+    padding: 16,
+    paddingBottom: 80, // Add extra padding at bottom
   },
-  headerTitle: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#666',
-    flex: 3,
-  },
-  headerProgress: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#666',
-    flex: 2,
-    textAlign: 'center',
-  },
-  headerActions: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#666',
-    flex: 1,
-    textAlign: 'center',
-  },
-  tableRow: {
-    flexDirection: 'row',
+  card: {
     backgroundColor: 'white',
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
-    alignItems: 'center',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
-  titleColumn: {
-    flex: 3,
-    paddingRight: 8,
-  },
-  progressColumn: {
-    flex: 2,
-    alignItems: 'center',
-  },
-  actionsColumn: {
-    flex: 1,
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
   },
-  taskTitle: {
-    fontSize: 14,
+  cardTitle: {
+    fontSize: 16,
     fontWeight: '500',
     color: '#333',
-    marginBottom: 2,
+    flex: 1,
+    marginRight: 8,
   },
-  taskType: {
-    fontSize: 12,
-    color: '#666',
+  cardContent: {
+    marginBottom: 8,
   },
-  progressBarContainer: {
-    height: 6,
-    width: '90%',
-    backgroundColor: '#EEEEEE',
-    borderRadius: 3,
-    overflow: 'hidden',
+  progressSection: {
+    marginTop: 8,
+  },
+  progressLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginBottom: 4,
   },
-  progressFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  timeRemaining: {
-    fontSize: 10,
+  progressLabel: {
+    fontSize: 14,
     color: '#666',
   },
-  infoButton: {
-    padding: 4,
+  timeRemaining: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
   },
-  listContainer: {
-    flexGrow: 1,
+  progressBar: {
+    height: 8,
+    borderRadius: 4,
+  },
+  checkboxContainer: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
   },
   emptyContainer: {
     flex: 1,
@@ -607,3 +576,4 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
+*/

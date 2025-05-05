@@ -14,7 +14,7 @@ const handleLogin = async () => {
       setLoading(false);
     }
   };
-  
+  /*
   const handleLogin = async () => {
     if (!username || !password) {
       console.log("Missing username or password");
@@ -59,4 +59,4 @@ const handleLogin = async () => {
       // Display error message to user
       Alert.alert('Login Failed', error.message || 'Please check your credentials');
     }
-  };
+  };*/
