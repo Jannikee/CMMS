@@ -146,7 +146,66 @@ class MaintenanceStatistics:
                 })
         
         return failure_rates  
-   
+    @staticmethod
+    def get_uptime_statistics(machine_id=None, start_date=None, end_date=None):
+        """Calculate uptime statistics for machines"""
+        # Query completed work orders that caused downtime
+        query = db.session.query(
+            WorkOrder.machine_id,
+            func.sum(WorkOrder.downtime_hours).label('total_downtime')
+        ).filter(
+            WorkOrder.status == 'completed'
+        ).group_by(
+            WorkOrder.machine_id
+        )
+        
+        if machine_id:
+            query = query.filter(WorkOrder.machine_id == machine_id)
+            
+        if start_date:
+            query = query.filter(WorkOrder.created_at >= start_date)
+            
+        if end_date:
+            query = query.filter(WorkOrder.created_at <= end_date)
+            
+        # Note: This assumes we have a 'downtime_hours' field in WorkOrder model
+        # You would need to add this field or use a different approach
+        
+        results = query.all()
+        
+        # Calculate time period for uptime calculation
+        if not start_date:
+            start_date = datetime.now(timezone.utc) - timedelta(days=30)  # Default to last 30 days
+            
+        if not end_date:
+            end_date = datetime.now(timezone.utc)
+            
+        total_hours = (end_date - start_date).total_seconds() / 3600
+        
+        uptime_stats = []
+        for result in results:
+            machine_id, total_downtime = result
+            
+            # Get machine
+            machine = Machine.query.get(machine_id)
+            
+            if total_downtime is None:
+                total_downtime = 0
+                
+            uptime_hours = total_hours - total_downtime
+            uptime_percentage = (uptime_hours / total_hours * 100) if total_hours > 0 else 0
+            
+            uptime_stats.append({
+                'machine_id': machine_id,
+                'machine_name': machine.name,
+                'period_hours': round(total_hours, 1),
+                'downtime_hours': round(total_downtime, 1),
+                'uptime_hours': round(uptime_hours, 1),
+                'uptime_percentage': round(uptime_percentage, 2)
+            })
+        
+        return uptime_stats
+    
     @staticmethod
     def get_mtbf_mttr(machine_id=None, start_date=None, end_date=None):
         """Calculate Mean Time Between Failures (MTBF) and Mean Time To Repair (MTTR)"""
@@ -225,7 +284,7 @@ class MaintenanceStatistics:
         return mtbf_mttr_stats
     
     @staticmethod
-    def get_work_order_statistics(machine_id=None, start_date=None, end_date=None):
+    def generate_work_order_statistics(machine_id=None, start_date=None, end_date=None):
         """Generate statistics about work orders"""
         # Query work orders
         query = db.session.query(

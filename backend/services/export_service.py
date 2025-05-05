@@ -158,7 +158,7 @@ class ExportService:
         
         # Get statistics
         failure_rates = MaintenanceStatistics.get_failure_rates(machine_id, start_date, end_date)
-    
+        uptime_stats = MaintenanceStatistics.get_uptime_statistics(machine_id, start_date, end_date)
         mtbf_mttr = MaintenanceStatistics.get_mtbf_mttr(machine_id, start_date, end_date)
         work_order_stats = MaintenanceStatistics.get_work_order_statistics(machine_id, start_date, end_date)
         
@@ -170,6 +170,10 @@ class ExportService:
                 df_failure = pd.DataFrame(failure_rates)
                 df_failure.to_excel(writer, sheet_name='Failure Rates', index=False)
             
+            # Uptime statistics sheet
+            if uptime_stats:
+                df_uptime = pd.DataFrame(uptime_stats)
+                df_uptime.to_excel(writer, sheet_name='Uptime Statistics', index=False)
             
             # MTBF/MTTR sheet
             if mtbf_mttr:
