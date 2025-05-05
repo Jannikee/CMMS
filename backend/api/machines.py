@@ -501,3 +501,47 @@ def upload_technical_structure():
             pass
         
         return jsonify(message=f"Error processing file: {str(e)}"), 500
+    
+@machines_bp.route('/<int:machine_id>/hierarchy', methods=['GET'])
+@jwt_required()
+def get_machine_hierarchy(machine_id):
+    """Get complete hierarchy for a machine including all subsystems and components"""
+    machine = Machine.query.get(machine_id)
+    if not machine:
+        return jsonify(message="Machine not found"), 404
+    
+    # Get all subsystems for this machine
+    subsystems = Subsystem.query.filter_by(machine_id=machine_id).all()
+    subsystem_list = []
+    
+    for subsystem in subsystems:
+        # Get all components for this subsystem
+        components = Component.query.filter_by(subsystem_id=subsystem.id).all()
+        component_list = []
+        
+        for component in components:
+            component_list.append({
+                'id': component.id,
+                'name': component.name,
+                'technical_id': component.technical_id,
+                'location': component.location or '',
+                'description': component.description or '',
+                'function': component.function or ''
+            })
+        
+        subsystem_list.append({
+            'id': subsystem.id,
+            'name': subsystem.name,
+            'technical_id': subsystem.technical_id,
+            'description': subsystem.description or '',
+            'components': component_list
+        })
+    
+    result = {
+        'id': machine.id,
+        'name': machine.name,
+        'technical_id': machine.technical_id,
+        'subsystems': subsystem_list
+    }
+    
+    return jsonify(hierarchy=result)
