@@ -31,8 +31,8 @@ Setting up Node.js in VSCode
 
 3. **Install Node.js Extension**:
   - Press Ctrl+Shift+X to open Extensions
-  - Search for "Node.js"
-  - Install "Node.js Extension Pack" by Microsoft
+  - Search for "javaScript"
+  - Install "JavaScript Debugger (Nightly)" by Microsoft
 
 4. **Verify in VSCode Terminal**:
   - Open a new terminal in VSCode (Terminal > New Terminal)
@@ -69,13 +69,13 @@ source venv/bin/activate
 pip install -r backend/requirements.txt
 ```
 * Initialize the database
-The database initialization is defined in the backend/__init__.py file and should happen automatically when the server starts for the first time
+The database initialization is defined in the backend/__init__.py file and should automatically initialize when the server starts for the first time
 * Run the backend server
 ```
 # From the project root
 python server.py
 ```
-Or Ctrl + Shift + d then click the green play button
+Or Ctrl + Shift + d then click the green play button, but mightt not work
 
 ### Web_app setup
 * Install dependencies
