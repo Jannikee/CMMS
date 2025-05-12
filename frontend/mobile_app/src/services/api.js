@@ -11,7 +11,7 @@ import {
   getMockSubsystemsForMachine
 } from './mockDataService';
 
-const API_URL = '192.168.10.116:5000/api';
+const API_URL = 'http://192.168.10.116:5000/api';
 
 /**
  * Check if test mode is enabled

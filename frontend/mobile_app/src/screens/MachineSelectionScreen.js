@@ -1,4 +1,4 @@
-// frontend/mobile_app/src/screens/MachineSelectionScreen.js
+// MachineSelectionScreen.js
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
@@ -7,20 +7,17 @@ import {
   FlatList, 
   TouchableOpacity,
   ActivityIndicator,
-  Switch,
-  Alert,
-  TextInput
+  TextInput,
+  Alert
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getMockMachines } from '../services/mockDataService';
 
 export default function MachineSelectionScreen({ navigation, route }) {
   const [machines, setMachines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [filteredMachines, setFilteredMachines] = useState([]);
-  const [testMode, setTestMode] = useState(true);
 
   // Load machines when component mounts
   useEffect(() => {
@@ -45,38 +42,25 @@ export default function MachineSelectionScreen({ navigation, route }) {
     try {
       setLoading(true);
       
-      if (testMode) {
-        // Load mock machines for testing
-        const mockMachines = getMockMachines();
-        setMachines(mockMachines);
-        setFilteredMachines(mockMachines);
-        
-        // Store test mode flag
-        await AsyncStorage.setItem('testMode', 'true');
-      } else {
-        // In a real app, you would fetch from the API
-        const token = await AsyncStorage.getItem('userToken');
-        if (!token) {
-          throw new Error('Authentication required');
-        }
-        
-        const response = await fetch('http://127.0.0.1:5000/api/machines', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch machines');
-        }
-        
-        const data = await response.json();
-        setMachines(data.machines);
-        setFilteredMachines(data.machines);
-        
-        // Clear test mode flag
-        await AsyncStorage.removeItem('testMode');
+      // In a real app, you would fetch from the API
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) {
+        throw new Error('Authentication required');
       }
+      
+      const response = await fetch('http://192.168.10.116:5000/api/machines', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch machines');
+      }
+      
+      const data = await response.json();
+      setMachines(data.machines);
+      setFilteredMachines(data.machines);
     } catch (error) {
       console.error('Error loading machines:', error);
       Alert.alert('Error', 'Failed to load machines');
@@ -111,11 +95,6 @@ export default function MachineSelectionScreen({ navigation, route }) {
     }
   };
 
-  const toggleTestMode = (value) => {
-    setTestMode(value);
-    loadMachines();
-  };
-
   const renderMachineItem = ({ item }) => (
     <TouchableOpacity
       style={styles.machineItem}
@@ -141,16 +120,6 @@ export default function MachineSelectionScreen({ navigation, route }) {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Select Equipment</Text>
-        
-        <View style={styles.testModeContainer}>
-          <Text style={styles.testModeLabel}>Test Mode</Text>
-          <Switch
-            value={testMode}
-            onValueChange={toggleTestMode}
-            trackColor={{ false: "#767577", true: "#5D6271" }}
-            thumbColor={testMode ? "#ffffff" : "#f4f3f4"}
-          />
-        </View>
       </View>
       
       <View style={styles.searchContainer}>
@@ -224,15 +193,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#5D6271',
-  },
-  testModeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  testModeLabel: {
-    marginRight: 8,
-    fontSize: 14,
-    color: '#666',
   },
   searchContainer: {
     flexDirection: 'row',

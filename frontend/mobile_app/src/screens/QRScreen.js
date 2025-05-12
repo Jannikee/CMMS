@@ -1,9 +1,10 @@
+// QRScreen.js
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Camera } from 'expo-camera';
-//import { BarCodeScanner } from 'expo-barcode-scanner';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialIcons } from '@expo/vector-icons';
+import { scanQRCode } from '../services/api';
 
 export default function QRScannerScreen({ navigation }) {
   const [hasPermission, setHasPermission] = useState(null);
@@ -37,39 +38,28 @@ export default function QRScannerScreen({ navigation }) {
     
     try {
       // Validate the QR code content
-      // Expecting format: a UUID that represents the machine's QR code
       const token = await AsyncStorage.getItem('userToken');
       if (!token) {
         throw new Error('Authentication required');
       }
       
-      // Call your API to validate and get machine details
-      const response = await fetch(`http://127.0.0.1:5000/api/machines/qrcode/${data}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Invalid QR code or machine not found');
-      }
-      
-      const machineData = await response.json();
+      // Call API to validate and get machine details
+      const machineData = await scanQRCode(token, data);
       
       // Save the selected machine to AsyncStorage
-      await AsyncStorage.setItem('selectedMachine', JSON.stringify(machineData.machine));
+      await AsyncStorage.setItem('selectedMachine', JSON.stringify(machineData));
       
       // Update state
-      setSelectedMachine(machineData.machine);
+      setSelectedMachine(machineData);
       
       // Show confirmation
       Alert.alert(
         "Machine Selected",
-        `You have selected ${machineData.machine.name}`,
+        `You have selected ${machineData.name}`,
         [
           {
             text: "Update Hours",
-            onPress: () => navigation.navigate('Runtime', { machine: machineData.machine })
+            onPress: () => navigation.navigate('Runtime', { machine: machineData })
           },
           {
             text: "Continue",
@@ -99,19 +89,6 @@ export default function QRScannerScreen({ navigation }) {
     }
   };
 
-  const enableTestMode = async () => {
-    try {
-      // Set test mode flag
-      await AsyncStorage.setItem('testMode', 'true');
-      
-      // Navigate to machine selection screen
-      navigation.navigate('MachineSelection');
-    } catch (error) {
-      console.error('Error enabling test mode:', error);
-      Alert.alert('Error', 'Failed to enable test mode');
-    }
-  };
-
   if (hasPermission === null) {
     return <View style={styles.container}><Text>Requesting camera permission...</Text></View>;
   }
@@ -120,14 +97,6 @@ export default function QRScannerScreen({ navigation }) {
     return (
       <View style={styles.container}>
         <Text style={styles.errorText}>Camera access is required to scan QR codes.</Text>
-        
-        <TouchableOpacity 
-          style={styles.testModeButton}
-          onPress={enableTestMode}
-        >
-          <MaterialIcons name="bug-report" size={24} color="white" />
-          <Text style={styles.testModeButtonText}>Enable Test Mode</Text>
-        </TouchableOpacity>
         
         <TouchableOpacity 
           style={[styles.button, styles.secondaryButton]}
@@ -180,11 +149,10 @@ export default function QRScannerScreen({ navigation }) {
             <Camera
               style={styles.camera}
               type={Camera.Constants.Type.back}
-              onBarCodeScanned={handleBarCodeScanned}
+              onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
               barCodeScannerSettings={{
                 barCodeTypes: ['qr'],
-               }}
-             //onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
+              }}
             >
               <View style={styles.overlay}>
                 <View style={styles.unfilled} />
@@ -197,14 +165,6 @@ export default function QRScannerScreen({ navigation }) {
               </View>
             </Camera>
           </View>
-          
-          <TouchableOpacity 
-            style={styles.testModeButton}
-            onPress={enableTestMode}
-          >
-            <MaterialIcons name="bug-report" size={24} color="white" />
-            <Text style={styles.testModeButtonText}>Enable Test Mode</Text>
-          </TouchableOpacity>
           
           <TouchableOpacity 
             style={styles.secondaryButton}
@@ -316,20 +276,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 20,
-  },
-  testModeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FF9800',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  testModeButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '500',
-    marginLeft: 8,
   },
 });

@@ -1,16 +1,10 @@
 // screens/LoginScreen.js
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { login } from '../services/api';
-//import { AuthContext } from '../context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-//import { login } from '../services/api';
-import { mockLogin } from '../services/mockDataService'; // Make sure to import this
-
 
 export default function LoginScreen({ navigation }) {
-  //const { onLogin } = useContext(AuthContext);        // added
-  const [error, setError] = useState(null);           //added
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -23,37 +17,15 @@ export default function LoginScreen({ navigation }) {
 
     setLoading(true);
     try {
-      await login(username, password);
+      // Call API to login
+      const userData = await login(username, password);
+      
+      // Store token
+      await AsyncStorage.setItem('userToken', userData.access_token);
+      
       navigation.replace('Dashboard');
     } catch (error) {
       Alert.alert('Login Failed', error.message || 'Please check your credentials');
-    } finally {
-      setLoading(false);
-    }
-  };
-  // ... existing code ...
-  // Function to enable test mode and login
-  const handleTestModeLogin = async () => {
-    try {
-      setLoading(true);
-      
-      // Set test mode flag in AsyncStorage
-      await AsyncStorage.setItem('testMode', 'true');
-      
-      // Use mock login function directly
-      const testUser = await mockLogin('testuser', 'password');
-      
-      // Store token
-      await AsyncStorage.setItem('userToken', testUser.access_token);
-
-      navigation.replace('Dashboard');
-      
-      // Trigger login in the app context
-      //onLogin(testUser);
-      
-    } catch (error) {
-      console.error('Test mode login error:', error);
-      setError('Failed to login with test mode');
     } finally {
       setLoading(false);
     }
@@ -64,14 +36,7 @@ export default function LoginScreen({ navigation }) {
       <View style={styles.logoContainer}>
         <Text style={styles.logoText}>CMMS</Text>
         <Text style={styles.tagline}>Vedlikeholdssystem</Text>
-        <TouchableOpacity 
-        style={styles.testModeButton}
-        onPress={handleTestModeLogin}
-        disabled={loading}
-        >
-        <Text style={styles.testModeText}>Test Mode Login</Text>
-      </TouchableOpacity>
-    </View>
+      </View>
       
       <View style={styles.formContainer}>
         <TextInput
