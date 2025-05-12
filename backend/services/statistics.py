@@ -86,66 +86,61 @@ class MaintenanceStatistics:
         
         # Process and format the results
         failure_rates = []
-        
+    
         for result in results:
             if component_id:
                 # Component-level results
                 component_id, component_name, technical_id, subsystem_name, machine_name, failure_count = result
                 
-                # Get the operating hours (can be machine hours or a more specific metric if available)
+                # Get the operating hours and machine settings
                 machine = Machine.query.get(Component.query.get(component_id).machine_id)
                 total_hours = machine.hour_counter if machine.hour_counter else 0
-                
-                failure_rates.append({
-                    'level': 'component',
-                    'id': component_id,
-                    'name': component_name,
-                    'technical_id': technical_id,
-                    'subsystem_name': subsystem_name,
-                    'machine_name': machine_name,
-                    'failure_count': failure_count,
-                    'operation_hours': total_hours,
-                    'failure_rate_per_1000h': round((failure_count / total_hours * 1000) if total_hours > 0 else 0, 2)
-                })
+                denominator = machine.failure_rate_denominator  # Get machine-specific setting
                 
             elif subsystem_id:
                 # Subsystem-level results
                 subsystem_id, subsystem_name, technical_id, machine_name, failure_count = result
                 
-                # Get the operating hours
+                # Get the operating hours and machine settings
                 machine = Machine.query.get(Subsystem.query.get(subsystem_id).machine_id)
                 total_hours = machine.hour_counter if machine.hour_counter else 0
-                
-                failure_rates.append({
-                    'level': 'subsystem',
-                    'id': subsystem_id,
-                    'name': subsystem_name,
-                    'technical_id': technical_id,
-                    'machine_name': machine_name,
-                    'failure_count': failure_count,
-                    'operation_hours': total_hours,
-                    'failure_rate_per_1000h': round((failure_count / total_hours * 1000) if total_hours > 0 else 0, 2)
-                })
+                denominator = machine.failure_rate_denominator  # Get machine-specific setting
                 
             else:
                 # Machine-level results
                 machine_id, machine_name, technical_id, failure_count = result
                 
-                # Get the operating hours
+                # Get the operating hours and machine settings
                 machine = Machine.query.get(machine_id)
                 total_hours = machine.hour_counter if machine.hour_counter else 0
+                denominator = machine.failure_rate_denominator  # Get machine-specific setting
+            
+            # Calculate failure rate using the machine-specific denominator
+            failure_rate = round((failure_count / total_hours * denominator) if total_hours > 0 else 0, 2)
+            
+            # Add to results with appropriate information
+            result_dict = {
+                'level': 'component' if component_id else 'subsystem' if subsystem_id else 'machine',
+                'id': component_id or subsystem_id or machine_id,
+                'name': component_name or subsystem_name or machine_name,
+                'technical_id': technical_id,
+                'failure_count': failure_count,
+                'operation_hours': total_hours,
+                'failure_rate_per_x_hours': failure_rate,
+                'denominator': denominator,
+                'rate_description': f"{failure_rate} failures per {denominator} hours"
+            }
+            
+            # Add additional fields based on level
+            if component_id:
+                result_dict['subsystem_name'] = subsystem_name
+                result_dict['machine_name'] = machine_name
+            elif subsystem_id:
+                result_dict['machine_name'] = machine_name
                 
-                failure_rates.append({
-                    'level': 'machine',
-                    'id': machine_id,
-                    'name': machine_name,
-                    'technical_id': technical_id,
-                    'failure_count': failure_count,
-                    'operation_hours': total_hours,
-                    'failure_rate_per_1000h': round((failure_count / total_hours * 1000) if total_hours > 0 else 0, 2)
-                })
-        
-        return failure_rates  
+            failure_rates.append(result_dict)
+    
+        return failure_rates
     @staticmethod
     def get_uptime_statistics(machine_id=None, start_date=None, end_date=None):
         """Calculate uptime statistics for machines"""

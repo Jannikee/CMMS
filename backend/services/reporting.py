@@ -226,18 +226,21 @@ class ReportGenerator:
         # Determine what level of data we're working with based on the first result
         level = failure_rates[0].get('level', 'machine')
         
+        # Get the denominator from the first result to use in column headers
+        denominator = failure_rates[0].get('denominator', 100)
+        
         # Create appropriate table headers based on level
         if level == 'component':
             summary_data = [
-                ['Component', 'Technical ID', 'Subsystem', 'Machine', 'Failures', 'Hours', 'Rate (per 1000h)']
+                ['Component', 'Technical ID', 'Subsystem', 'Machine', 'Failures', 'Hours', f'Rate (per {denominator}h)']
             ]
         elif level == 'subsystem':
             summary_data = [
-                ['Subsystem', 'Technical ID', 'Machine', 'Failures', 'Hours', 'Rate (per 1000h)']
+                ['Subsystem', 'Technical ID', 'Machine', 'Failures', 'Hours', f'Rate (per {denominator}h)']
             ]
         else:  # machine level
             summary_data = [
-                ['Machine', 'Technical ID', 'Failures', 'Hours', 'Rate (per 1000h)']
+                ['Machine', 'Technical ID', 'Failures', 'Hours', f'Rate (per {denominator}h)']
             ]
         
         # Add data rows based on level
@@ -253,7 +256,7 @@ class ReportGenerator:
                     rate.get('machine_name', ''),
                     rate['failure_count'],
                     rate['operation_hours'],
-                    rate['failure_rate_per_1000h']
+                    rate['failure_rate_per_x_hours']  # Use the new field name
                 ]
             elif level == 'subsystem':
                 row = [
@@ -262,7 +265,7 @@ class ReportGenerator:
                     rate.get('machine_name', ''),
                     rate['failure_count'],
                     rate['operation_hours'],
-                    rate['failure_rate_per_1000h']
+                    rate['failure_rate_per_x_hours']  # Use the new field name
                 ]
             else:  # machine level
                 row = [
@@ -270,36 +273,38 @@ class ReportGenerator:
                     rate['technical_id'],
                     rate['failure_count'],
                     rate['operation_hours'],
-                    rate['failure_rate_per_1000h']
+                    rate['failure_rate_per_x_hours']  # Use the new field name
                 ]
             
             summary_data.append(row)
             total_failures += rate['failure_count']
             total_hours += rate['operation_hours']
         
-        # Add totals row
+        # Add totals row with the correct calculation
+        total_rate = round((total_failures / total_hours * denominator) if total_hours > 0 else 0, 2)
+        
         if level == 'component':
             summary_data.append([
                 'TOTAL', '', '', '',
                 total_failures,
                 total_hours,
-                round((total_failures / total_hours * 1000) if total_hours > 0 else 0, 2)
+                total_rate
             ])
         elif level == 'subsystem':
             summary_data.append([
                 'TOTAL', '', '',
                 total_failures,
                 total_hours,
-                round((total_failures / total_hours * 1000) if total_hours > 0 else 0, 2)
+                total_rate
             ])
         else:  # machine level
             summary_data.append([
                 'TOTAL', '',
                 total_failures,
                 total_hours,
-                round((total_failures / total_hours * 1000) if total_hours > 0 else 0, 2)
+                total_rate
             ])
-        
+            
         # Create table
         summary_table = Table(summary_data)
         

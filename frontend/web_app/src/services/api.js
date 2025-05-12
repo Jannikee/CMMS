@@ -396,21 +396,37 @@ export const tekniskPlasstrukturImport = async (formData) => {
 };
   
 export const getComponentHierarchy = async (equipmentId) => {
+  try {
+    console.log(`Calling API to get hierarchy for equipment ${equipmentId}`);
     const token = localStorage.getItem('token');
-
-    const response = await fetch(`${API_URL}/components/hierarchy?equipment_id=${equipmentId}`, {
-        headers: {
-        'Authorization': `Bearer ${token}`
-        }
-    });
-
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to fetch component hierarchy');
+    
+    if (!token) {
+      console.error("No authentication token found");
+      throw new Error("Authentication required");
     }
 
-    return await response.json();
-};  
+    const response = await fetch(`${API_URL}/machines/${equipmentId}/hierarchy`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    console.log(`API response status: ${response.status}`);
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("API error response:", errorData);
+      throw new Error(errorData.message || 'Failed to fetch component hierarchy');
+    }
+
+    const data = await response.json();
+    console.log("API response data:", data);
+    return data;
+  } catch (error) {
+    console.error(`Error fetching hierarchy for equipment ${equipmentId}:`, error);
+    throw error;
+  }
+}; 
 /*
 export const fetchRCMAnalysis = async (equipmentId = null) => {
     const token = localStorage.getItem('token');

@@ -154,6 +154,30 @@ const MachineForm = ({ isEditing = false }) => {
                   placeholder="0.0"
                 />
               </Form.Item>
+              {/* Add new fields */}
+              <Form.Item
+                name="failure_rate_denominator"
+                label="Failure Rate Denominator"
+                tooltip="The number of operating hours to use as the denominator for failure rates"
+              >
+                <InputNumber
+                  style={{ width: '100%' }}
+                  min={1}
+                  placeholder="100"
+                />
+              </Form.Item>
+
+              <Form.Item
+                name="expected_annual_usage"
+                label="Expected Annual Usage (hours/year)"
+                tooltip="Expected number of operating hours per year"
+              >
+                <InputNumber
+                  style={{ width: '100%' }}
+                  min={0}
+                  placeholder="300"
+                />
+              </Form.Item>
             </div>
             
             <Form.Item

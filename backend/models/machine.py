@@ -14,6 +14,11 @@ class Machine(db.Model):
     installation_date = db.Column(db.DateTime)      # Fjernet default
     last_maintenance = db.Column(db.DateTime)
     hour_counter = db.Column(db.Float, default=0)  # For hour-based maintenance NEED TO SEE MORE ON 
+
+    failure_rate_denominator = db.Column(db.Integer, default=100)  # hours
+    expected_annual_usage = db.Column(db.Float, default=300)  # hours per year
+    criticality_factor = db.Column(db.Float, default=1.0)  # 1-10 scale
+    idle_degradation_factor = db.Column(db.Float, default=0.0)  # 0-1 scale
     
     # Relationships
     subsystems = db.relationship('Subsystem', backref='machine', lazy=True)

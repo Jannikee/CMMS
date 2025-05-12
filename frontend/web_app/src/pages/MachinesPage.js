@@ -29,7 +29,7 @@ import MachineForm from '../components/Machines/MachineForm';
 import ComponentHierarchyTree from '../components/Machines/ComponentHierarchyTree';
 import ImportExcelTP from '../components/Machines/ImportExcelTP';
 import './MachinesPage.css';
-
+import SubsystemDetail from '../components/Machines/SubsystemDetail';
 const { Title } = Typography;
 const { Search } = Input;
 const { TabPane } = Tabs;
@@ -285,6 +285,8 @@ const MachinesPage = () => {
         <Route path="/create" element={<MachineForm />} />
         <Route path="/:id" element={<MachineDetail />} />
         <Route path="/:id/edit" element={<MachineForm isEditing />} />
+        <Route path="/subsystem/:id" element={<SubsystemDetail />} />
+       
       </Routes>
     </div>
   );

@@ -167,7 +167,13 @@ class ExportService:
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             # Failure rates sheet
             if failure_rates:
+                # Get the denominator from the first result
+                denominator = failure_rates[0].get('denominator', 100)
+                # Transform the data first to rename the column
                 df_failure = pd.DataFrame(failure_rates)
+                # Rename the column to include the denominator
+                if 'failure_rate_per_x_hours' in df_failure.columns:
+                    df_failure = df_failure.rename(columns={'failure_rate_per_x_hours': f'Failure Rate (per {denominator}h)'})
                 df_failure.to_excel(writer, sheet_name='Failure Rates', index=False)
             
             # Uptime statistics sheet

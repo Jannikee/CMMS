@@ -13,6 +13,7 @@ An in-depth paragraph about your project and overview of use. Put in later
 * Python 3.9+
 * Node.js 16+ and npm, if you dont have download and run the installer from [nodejs.org](https://nodejs.org/)
 * VS Code
+
 * Git
 
 #### Node installation
@@ -32,7 +33,7 @@ Setting up Node.js in VSCode
 3. **Install Node.js Extension**:
   - Press Ctrl+Shift+X to open Extensions
   - Search for "Node.js"
-  - Install "Node.js Extension Pack" by Microsoft
+  - Install "Node.js Extension Pack" by Microsoft---another namegit checkout <commit-hash>~1 -- path/to/file1 path/to/file2
 
 4. **Verify in VSCode Terminal**:
   - Open a new terminal in VSCode (Terminal > New Terminal)

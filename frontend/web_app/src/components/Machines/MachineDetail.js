@@ -472,7 +472,10 @@ const MachineDetail = () => {
                       <Descriptions column={1} bordered>
                         <Descriptions.Item label="Total Failures">{failureStats[0].failure_count}</Descriptions.Item>
                         <Descriptions.Item label="Operating Hours">{failureStats[0].operation_hours}</Descriptions.Item>
-                        <Descriptions.Item label="Failure Rate (per 1000h)">{failureStats[0].failure_rate_per_1000h}</Descriptions.Item>
+                        {/* Update this line to use the dynamic denominator */}
+                        <Descriptions.Item label={`Failure Rate (per ${failureStats[0].denominator}h)`}>
+                          {failureStats[0].failure_rate_per_x_hours}
+                        </Descriptions.Item>
                       </Descriptions>
                     ) : (
                       <Text>No failure data available</Text>
