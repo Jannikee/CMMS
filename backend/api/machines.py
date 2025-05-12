@@ -545,3 +545,23 @@ def get_machine_hierarchy(machine_id):
     }
     
     return jsonify(hierarchy=result)
+
+@machines_bp.route('/', methods=['OPTIONS'])
+@machines_bp.route('', methods=['OPTIONS'])
+def machines_options():
+    """Handle OPTIONS request for CORS preflight"""
+    response = jsonify({'message': 'OK'})
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
+
+# Also add an OPTIONS handler for specific machine routes
+@machines_bp.route('/<int:machine_id>', methods=['OPTIONS'])
+def machine_detail_options(machine_id):
+    """Handle OPTIONS request for CORS preflight for machine detail endpoint"""
+    response = jsonify({'message': 'OK'})
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,DELETE,OPTIONS')
+    return response

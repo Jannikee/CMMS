@@ -20,7 +20,15 @@ def create_app(config_class=Config):
     # Initialize extensions
     db.init_app(app)
     jwt = JWTManager(app)
-    CORS(app)
+    CORS(app, origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8081",
+        "exp://192.168.10.116:8081",
+        "http://192.168.10.116:8081",
+        "http://192.168.10.116:3000"
+    ],  methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type", "Authorization", "Accept", "Origin"])
 
     # Ensure upload directory exists
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)

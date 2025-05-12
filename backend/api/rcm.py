@@ -388,9 +388,13 @@ def upload_excel():
             # Optionally delete the file after import
             os.remove(file_path)
             
+            # If import was not successful, return the error message
+            if not result.get('success', False):
+                return jsonify(message=result.get('message', 'Import failed')), 400
+                
             return jsonify(
                 message="Excel file imported successfully",
-                imported=result
+                imported=result.get('imported', {})
             ), 201
             
         except Exception as e:
@@ -398,6 +402,7 @@ def upload_excel():
             if os.path.exists(file_path):
                 os.remove(file_path)
                 
+            logger.error(f"Error importing RCM file: {str(e)}", exc_info=True)
             return jsonify(message=f"Error importing file: {str(e)}"), 500
     
     return jsonify(message="Invalid file format"), 400

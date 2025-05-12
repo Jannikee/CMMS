@@ -22,3 +22,11 @@ class User(db.Model):
     #String representation of the user for debugging
     def __repr__(self):
         return f'<User {self.username}>'
+    def to_dict(self):
+    #Convert user object to dictionary"""
+        return {
+            'id': self.id,
+            'username': self.username,
+            'email': self.email,
+            'role': self.role
+        }

@@ -14,36 +14,91 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class RCMImportService:
+    """
+RCM Import Service with enhanced sheet detection
+"""
+import pandas as pd
+import os
+from datetime import datetime
+from backend.models.rcm import RCMUnit, RCMFunction, RCMFunctionalFailure, RCMFailureMode, RCMFailureEffect, RCMMaintenance
+from backend.models.machine import Machine, Subsystem, Component
+from backend.database import db
+import uuid
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+class RCMImportService:
     @staticmethod
     def import_from_excel(file_path, equipment_id):
         """Import RCM analysis from Excel file matching the layout in the images"""
         try:
-            # Read Excel file
-            df = pd.read_excel(file_path)
+            # Read Excel file - first list all sheets
+            excel_file = pd.ExcelFile(file_path)
+            sheet_names = excel_file.sheet_names
+            logger.info(f"Excel sheets found: {sheet_names}")
             
-            # Check if required columns exist - adjust to match your Excel layout
-            required_columns = [
-                'Funksjon/Function', 
-                'Functional Failure/Funksjonsfeil', 
-                'Failure Mode/ Sviktmode', 
-                'Failure Effect/ Effekt',
-                'Enhet'  # Added Enhet (Unit) column
-            ]
+            # Try to find the RCM sheet with flexible sheet name detection
+            target_sheet = None
+            
+            # First look for exact matches
+            for candidate in ["RCM", "RCM Analysis", "RCM Analyse"]:
+                if candidate in sheet_names:
+                    target_sheet = candidate
+                    break
+            
+            # If no exact match, look for sheets containing "RCM" in their name
+            if not target_sheet:
+                for sheet in sheet_names:
+                    if "rcm" in sheet.lower():
+                        target_sheet = sheet
+                        break
+            
+            # If still no match, check for other keywords
+            if not target_sheet:
+                for sheet in sheet_names:
+                    if any(keyword in sheet.lower() for keyword in ["failure", "svikt", "fmea", "fmeca", "analyse"]):
+                        target_sheet = sheet
+                        break
+            
+            # If no matching sheet is found, use the first sheet but warn about it
+            if not target_sheet:
+                logger.warning(f"No RCM-related sheet found. Using first sheet: {sheet_names[0]}")
+                target_sheet = sheet_names[0]
+            else:
+                logger.info(f"Found RCM sheet: {target_sheet}")
+            
+            # Read the selected sheet
+            df = pd.read_excel(file_path, sheet_name=target_sheet)
+            
+            # Log columns for debugging
+            logger.info(f"Excel columns found: {df.columns.tolist()}")
             
             # Map column names to handle slight variations
             column_mapping = {
                 'Funksjon': 'Funksjon/Function',
+                'Function': 'Funksjon/Function',
                 'Funksjonsfeil': 'Functional Failure/Funksjonsfeil',
+                'Functional Failure': 'Functional Failure/Funksjonsfeil',
                 'Sviktmode': 'Failure Mode/ Sviktmode',
+                'Failure Mode': 'Failure Mode/ Sviktmode',
                 'Effekt': 'Failure Effect/ Effekt',
+                'Failure Effect': 'Failure Effect/ Effekt',
                 'Konsekvens': 'Konsekvens',
+                'Consequence': 'Konsekvens',
                 'Tiltak': 'Tiltak',
+                'Maintenance Action': 'Tiltak',
                 'Tittak og intervall': 'Tittak og intervall',
                 'Intervall_dager': 'Intervall_dager',
+                'Interval_days': 'Intervall_dager',
                 'Intervall_timer': 'Intervall_timer',
+                'Interval_hours': 'Intervall_timer',
                 'Vedlikeholdstype': 'Vedlikeholdstype',
-                'Enhet': 'Enhet',  # Ensure we map "Enhet" column variations
-                'Unit': 'Enhet'     # Map English "Unit" to "Enhet"
+                'Maintenance Type': 'Vedlikeholdstype',
+                'Enhet': 'Enhet',  
+                'Unit': 'Enhet'     
             }
             
             # Rename columns to standardized names if needed
@@ -51,11 +106,31 @@ class RCMImportService:
                 if old_name in df.columns and new_name not in df.columns:
                     df = df.rename(columns={old_name: new_name})
             
-            # Check for missing required columns
-            missing_columns = [col for col in required_columns if not any(c.startswith(col) for c in df.columns)]
-            if missing_columns:
-                raise ValueError(f"Missing required columns: {', '.join(missing_columns)}")
+            # Log columns after mapping
+            logger.info(f"Excel columns after mapping: {df.columns.tolist()}")
             
+            # Check for required columns with flexible naming
+            required_column_keywords = {
+                'function': ['funksjon', 'function'],
+                'failure': ['funksjonsfeil', 'functional failure', 'failure'],
+                'mode': ['sviktmode', 'failure mode', 'mode'],
+                'effect': ['effekt', 'failure effect', 'effect']
+            }
+            
+            # Check if at least one column exists for each required type
+            missing_required_types = []
+            
+            for required_type, keywords in required_column_keywords.items():
+                if not any(any(keyword in col.lower() for keyword in keywords) for col in df.columns):
+                    missing_required_types.append(required_type)
+            
+            if missing_required_types:
+                return {
+                    "success": False,
+                    "message": f"Missing required column types: {', '.join(missing_required_types)}. Please check your Excel file."
+                }
+            
+            # Continue with the existing import logic...
             # Track created objects to link them correctly
             units_map = {}       # name -> object
             functions_map = {}  # name -> object
@@ -76,34 +151,36 @@ class RCMImportService:
                 'maintenance_actions': 0
             }
             
+            # Find the column names that match our required types
+            function_col = next((c for c in df.columns if any(keyword in c.lower() for keyword in required_column_keywords['function'])), None)
+            failure_col = next((c for c in df.columns if any(keyword in c.lower() for keyword in required_column_keywords['failure'])), None)
+            mode_col = next((c for c in df.columns if any(keyword in c.lower() for keyword in required_column_keywords['mode'])), None)
+            effect_col = next((c for c in df.columns if any(keyword in c.lower() for keyword in required_column_keywords['effect'])), None)
+            
+            # Log the identified columns
+            logger.info(f"Using columns: Function={function_col}, Failure={failure_col}, Mode={mode_col}, Effect={effect_col}")
+            
             for _, row in df.iterrows():
-                # Get unit - find the correct column name
-                unit_col = next((c for c in df.columns if c.startswith('Enhet')),None)
-                unit_name = row.get(unit_col)
+                # Get unit name (if available)
+                unit_col = next((c for c in df.columns if c == 'Enhet' or c == 'Unit'), None)
+                unit_name = row.get(unit_col) if unit_col else None
 
-                # Get function - find the correct column name
-                function_col = next((c for c in df.columns if c.startswith('Funksjon')), None)
+                # Get function name
                 function_name = row.get(function_col)
                 
-                # Get failure - find the correct column name
-                failure_col = next((c for c in df.columns if c.startswith('Functional Failure') or c.startswith('Funksjonsfeil')), None)
+                # Get failure name
                 failure_name = row.get(failure_col)
                 
-                # Get mode - find the correct column name
-                mode_col = next((c for c in df.columns if c.startswith('Failure Mode') or c.startswith('Sviktmode')), None)
+                # Get mode name
                 mode_name = row.get(mode_col)
                 
-                # Get effect - find the correct column name
-                effect_col = next((c for c in df.columns if c.startswith('Failure Effect') or c.startswith('Effekt')), None)
+                # Get effect description
                 effect_desc = row.get(effect_col)
-                
-                # Get Enhet (Unit) - find the correct column name
-                enhet_col = next((c for c in df.columns if c == 'Enhet' or c == 'Unit'), None)
-                enhet = row.get(enhet_col) if enhet_col else None
                 
                 # Skip rows with missing essential data
                 if pd.isna(function_name) and pd.isna(failure_name) and pd.isna(mode_name) and pd.isna(effect_desc):
                     continue
+                
                 # Handle Unit
                 if not pd.isna(unit_name) and unit_name:
                     if unit_name not in units_map:
@@ -119,6 +196,22 @@ class RCMImportService:
                         imported['units'] += 1
                     
                     current_unit = units_map[unit_name]
+                
+                # If no unit is specified, use a default unit
+                if not current_unit:
+                    default_unit_name = "Default Unit"
+                    if default_unit_name not in units_map:
+                        unit = RCMUnit(
+                            name=default_unit_name,
+                            description="Default unit created during import",
+                            equipment_id=equipment_id
+                        )
+                        db.session.add(unit)
+                        db.session.flush()
+                        units_map[default_unit_name] = unit
+                        imported['units'] += 1
+                    
+                    current_unit = units_map[default_unit_name]
                         
                 # Handle function - must have unit
                 if not pd.isna(function_name) and function_name and current_unit:
@@ -267,11 +360,18 @@ class RCMImportService:
             # Commit all changes
             db.session.commit()
             
-            return imported
+            return {
+                "success": True,
+                "imported": imported
+            }
             
         except Exception as e:
             db.session.rollback()
+            logger.error(f"Error importing RCM data: {str(e)}", exc_info=True)
             raise e
+        finally:
+            if 'excel_file' in locals():
+                excel_file.close()
 
 def import_hierarchy_from_excel(file_path):
     """Import machine hierarchy from Excel file"""

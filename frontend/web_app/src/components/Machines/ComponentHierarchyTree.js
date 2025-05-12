@@ -2,10 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { Tree, Spin, Empty, Typography, Button, message } from 'antd';
 import { DownOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import { fetchMachines, getComponentHierarchy } from '../../services/machineService';
 
 const { Title } = Typography;
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 const ComponentHierarchyTree = ({ onSelect, onAddClick }) => {
   const [loading, setLoading] = useState(true);
@@ -20,17 +19,7 @@ const ComponentHierarchyTree = ({ onSelect, onAddClick }) => {
       setLoading(true);
       console.log("Fetching machines...");
       
-      // Get the token for authentication
-      const token = localStorage.getItem('token');
-      
-      // Make a direct axios call to ensure we get data
-      const response = await axios.get(`${API_URL}/machines`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      const machinesData = response.data.machines || [];
+      const machinesData = await fetchMachines();
       console.log("Machines data received:", machinesData);
       
       if (!machinesData || machinesData.length === 0) {
@@ -87,26 +76,16 @@ const ComponentHierarchyTree = ({ onSelect, onAddClick }) => {
       console.log(`Loading hierarchy for machine ID: ${machineId}`);
       
       try {
-        // Get token for authentication
-        const token = localStorage.getItem('token');
+        const result = await getComponentHierarchy(machineId);
+        console.log("Hierarchy data received:", result);
         
-        // Direct axios call to get hierarchy data
-        const response = await axios.get(`${API_URL}/machines/${machineId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        const machineData = response.data.machine;
-        console.log("Machine data received:", machineData);
-        
-        if (!machineData || !machineData.subsystems) {
+        if (!result || !result.hierarchy || !result.hierarchy.subsystems) {
           console.log("No hierarchy data received or missing 'subsystems' property");
           return Promise.resolve();
         }
         
         // Process subsystems and their components
-        const subsystems = machineData.subsystems || [];
+        const subsystems = result.hierarchy.subsystems || [];
         console.log(`Found ${subsystems.length} subsystems`);
         
         const subsystemNodes = subsystems.map(subsystem => {
@@ -173,7 +152,6 @@ const ComponentHierarchyTree = ({ onSelect, onAddClick }) => {
         });
       } catch (error) {
         console.error(`Error loading hierarchy for machine ${machineId}:`, error);
-        console.error("Error details:", error.message, error.stack);
         message.error('Failed to load subsystems and components');
       }
     }
