@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Switch } from 'react-router-dom';
 import { Layout, Spin, message } from 'antd';
 import { AuthContext } from './context/AuthContext';
 
@@ -11,6 +11,7 @@ import MachinesPage from './pages/MachinesPage';
 import MaintenancePage from './pages/MaintenancePage';
 import RCMPage from './pages/RCMPage';
 import ReportsPage from './pages/ReportsPage';
+import IntervalOptimizationPage from './pages/IntervalOptimizationPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 // Components
@@ -136,6 +137,12 @@ function App() {
                 <Route path="/rcm/*" element={
                   <ProtectedRoute>
                     <RCMPage />
+                  </ProtectedRoute>
+                } />
+
+                <Route path="/optimization/*" element={
+                  <ProtectedRoute>
+                    <IntervalOptimizationPage />
                   </ProtectedRoute>
                 } />
                 

@@ -31,6 +31,7 @@ def create_app(config_class=Config):
     from backend.api.machines import machines_bp
     from backend.api.maintenance import maintenance_bp
     from backend.api.reports import reports_bp
+    from backend.api.automation import automation_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(work_orders_bp, url_prefix='/api/work-orders')
@@ -38,6 +39,7 @@ def create_app(config_class=Config):
     app.register_blueprint(maintenance_bp, url_prefix='/api/maintenance')
     app.register_blueprint(rcm_bp, url_prefix='/api/rcm')
     app.register_blueprint(reports_bp, url_prefix='/api/reports')
+    app.register_blueprint(automation_bp, url_prefix='/api/optimization')
 
     #add jwt callbacks
     @jwt.invalid_token_loader

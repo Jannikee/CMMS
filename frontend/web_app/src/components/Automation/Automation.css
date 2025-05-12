@@ -1,0 +1,24 @@
+/* Styling for automation components */
+.interval-optimization-panel,
+.optimization-effectiveness-panel,
+.scheduler-control-panel {
+  margin-bottom: 24px;
+}
+
+.selection-card,
+.settings-card,
+.summary-card,
+.status-card,
+.operations-card {
+  margin-bottom: 16px;
+}
+
+.optimization-card {
+  margin-top: 16px;
+  margin-bottom: 16px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 0;
+}

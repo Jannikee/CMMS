@@ -57,6 +57,11 @@ const Sidebar = ({ collapsed, userRole }) => {
       label: <Link to="/rcm">RCM Analysis</Link>,
     },
     {
+    key: '/optimization',
+    icon: <BarChartOutlined />,
+    label: <Link to="/optimization">Interval Optimization</Link>,
+    },
+    {
       key: '/reports',
       icon: <BarChartOutlined />,
       label: <Link to="/reports">Reports</Link>,
