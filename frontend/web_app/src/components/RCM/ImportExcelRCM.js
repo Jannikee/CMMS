@@ -1,4 +1,4 @@
-// frontend/web_app/src/components/RCM/ImportExcelRCM.js
+// frontend/web_app/src/components/RCM/ImportExcelRCM.js - Updated for Norwegian RCM format
 import React, { useState, useEffect } from 'react';
 import { Upload, Button, Form, Select, message, Alert, Spin, Radio, Space } from 'antd';
 import { UploadOutlined, InfoCircleOutlined, FileExcelOutlined, SearchOutlined } from '@ant-design/icons';
@@ -177,7 +177,7 @@ const ImportExcelRCM = ({ onUploadSuccess }) => {
               <Radio value="auto">
                 <Space>
                   <SearchOutlined />
-                  <span>Auto-detect sheet containing 'RCM'</span>
+                  <span>Auto-detect sheet containing 'RCM' or 'Analyse'</span>
                 </Space>
               </Radio>
               <Radio value="first">
@@ -225,21 +225,23 @@ const ImportExcelRCM = ({ onUploadSuccess }) => {
           message="File Format Requirements"
           description={
             <div>
-              <p>The Excel file should contain columns for:</p>
+              <p>The Excel file should follow the format from your example with headers on second row:</p>
               <ul>
-                <li>Funksjon/Function - Required</li>
-                <li>Functional Failure/Funksjonsfeil - Required</li>
-                <li>Failure Mode/Sviktmode - Required</li>
-                <li>Failure Effect/Effekt - Required</li>
-                <li>Enhet - Optional (Unit)</li>
-                <li>Konsekvens - Optional (Consequence)</li>
-                <li>Tiltak - Optional (Action)</li>
-                <li>Intervall_dager - Optional (Interval in days)</li>
-                <li>Intervall_timer - Optional (Interval in hours)</li>
-                <li>Vedlikeholdstype - Optional (Maintenance type)</li>
+                <li><strong>Column 1 (Enhet)</strong> - Unit name</li>
+                <li><strong>Column 2 (Funksjon)</strong> - Function description (Required)</li>
+                <li><strong>Column 3 (Funksjonsfeil)</strong> - Functional Failure (Required)</li>
+                <li><strong>Column 4 (Sviktmode)</strong> - Failure Mode (Required)</li>
+                <li><strong>Column 5 (Effekt)</strong> - Effect or Consequence (Required)</li>
+                <li><strong>Column 7 (Tiltak og intervall)</strong> - Actions and intervals</li>
+                <li><strong>Column 8 (Svikthåndteringsstrategi)</strong> - Maintenance Strategy</li>
               </ul>
               <p>
-                <InfoCircleOutlined /> <strong>Sheet detection:</strong> In Auto mode, the system will search for a sheet with a name containing "RCM". 
+                <InfoCircleOutlined /> <strong>Important:</strong> The system is updated to handle files with column headers 
+                on the second row (like in your example). If you have column numbers instead of text headers (1, 2, 3, 4, 5, 7, 8),
+                the system will still work correctly.
+              </p>
+              <p>
+                <InfoCircleOutlined /> <strong>Sheet detection:</strong> In Auto mode, the system will search for a sheet with a name containing "RCM" or "Analyse". 
                 If no such sheet is found, it will use the first sheet.
               </p>
             </div>
