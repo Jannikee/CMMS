@@ -1,10 +1,11 @@
-// frontend/web_app/src/components/ComponentHierarchyTree.js
+// frontend/web_app/src/components/Machines/ComponentHierarchyTree.js
 import React, { useState, useEffect } from 'react';
 import { Tree, Spin, Empty, Typography, Button, message } from 'antd';
 import { DownOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
-import { fetchMachines, getComponentHierarchy } from '../../services/api';
+import axios from 'axios';
 
 const { Title } = Typography;
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 const ComponentHierarchyTree = ({ onSelect, onAddClick }) => {
   const [loading, setLoading] = useState(true);
@@ -18,7 +19,18 @@ const ComponentHierarchyTree = ({ onSelect, onAddClick }) => {
     try {
       setLoading(true);
       console.log("Fetching machines...");
-      const machinesData = await fetchMachines();
+      
+      // Get the token for authentication
+      const token = localStorage.getItem('token');
+      
+      // Make a direct axios call to ensure we get data
+      const response = await axios.get(`${API_URL}/machines`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const machinesData = response.data.machines || [];
       console.log("Machines data received:", machinesData);
       
       if (!machinesData || machinesData.length === 0) {
@@ -32,8 +44,8 @@ const ComponentHierarchyTree = ({ onSelect, onAddClick }) => {
       const machineNodes = machinesData.map(machine => ({
         key: `machine-${machine.id}`,
         title: (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>{machine.name} ({machine.technical_id})</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            <span>{machine.name} ({machine.technical_id || 'No ID'})</span>
             {onAddClick && (
               <Button 
                 type="text" 
@@ -62,7 +74,6 @@ const ComponentHierarchyTree = ({ onSelect, onAddClick }) => {
     }
   };
   
-  // Add these debug logs to your onLoadData function
   const onLoadData = async ({ key, children }) => {
     console.log(`Loading data for node with key: ${key}, existing children count: ${children.length}`);
     
@@ -76,43 +87,35 @@ const ComponentHierarchyTree = ({ onSelect, onAddClick }) => {
       console.log(`Loading hierarchy for machine ID: ${machineId}`);
       
       try {
-        // Get hierarchy data for this machine
-        console.log(`Calling getComponentHierarchy for machine ${machineId}`);
-        const hierarchyData = await getComponentHierarchy(machineId);
-        console.log("Hierarchy data received:", hierarchyData);
+        // Get token for authentication
+        const token = localStorage.getItem('token');
         
-        if (!hierarchyData || !hierarchyData.hierarchy) {
-          console.log("No hierarchy data received or missing 'hierarchy' property");
+        // Direct axios call to get hierarchy data
+        const response = await axios.get(`${API_URL}/machines/${machineId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        const machineData = response.data.machine;
+        console.log("Machine data received:", machineData);
+        
+        if (!machineData || !machineData.subsystems) {
+          console.log("No hierarchy data received or missing 'subsystems' property");
           return Promise.resolve();
         }
         
-        // Update the tree with subsystems
-        const subsystems = hierarchyData.hierarchy.subsystems || [];
+        // Process subsystems and their components
+        const subsystems = machineData.subsystems || [];
         console.log(`Found ${subsystems.length} subsystems`);
         
-        const subsystemNodes = subsystems.map(subsystem => ({
-          key: `subsystem-${subsystem.id}`,
-          title: (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>{subsystem.name} ({subsystem.technical_id})</span>
-              {onAddClick && (
-                <Button 
-                  type="text" 
-                  icon={<PlusOutlined />} 
-                  size="small"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onAddClick('subsystem', subsystem.id, subsystem);
-                  }}
-                />
-              )}
-            </div>
-          ),
-          children: (subsystem.components || []).map(component => ({
+        const subsystemNodes = subsystems.map(subsystem => {
+          // Process components for this subsystem
+          const componentNodes = (subsystem.components || []).map(component => ({
             key: `component-${component.id}`,
             title: (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>{component.name} ({component.technical_id})</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                <span>{component.name} ({component.technical_id || 'No ID'})</span>
                 {onAddClick && (
                   <Button 
                     type="text" 
@@ -128,9 +131,30 @@ const ComponentHierarchyTree = ({ onSelect, onAddClick }) => {
             ),
             isLeaf: true,
             data: { ...component, type: 'component' }
-          })),
-          data: { ...subsystem, type: 'subsystem' }
-        }));
+          }));
+          
+          return {
+            key: `subsystem-${subsystem.id}`,
+            title: (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                <span>{subsystem.name} ({subsystem.technical_id || 'No ID'})</span>
+                {onAddClick && (
+                  <Button 
+                    type="text" 
+                    icon={<PlusOutlined />} 
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddClick('subsystem', subsystem.id, subsystem);
+                    }}
+                  />
+                )}
+              </div>
+            ),
+            children: componentNodes,
+            data: { ...subsystem, type: 'subsystem' }
+          };
+        });
         
         console.log("Created subsystem nodes:", subsystemNodes);
         

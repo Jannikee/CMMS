@@ -1,4 +1,4 @@
-// Updated frontend RCM service for unit-first structure
+// frontend/web_app/src/services/rcmService.js
 import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -25,56 +25,7 @@ rcmAPI.interceptors.request.use(
   }
 );
 
-// Fetch RCM units
-export const fetchRCMUnits = async (equipmentId = null) => {
-  try {
-    let url = '/units';
-    if (equipmentId) {
-      url += `?equipment_id=${equipmentId}`;
-    }
-    
-    const response = await rcmAPI.get(url);
-    return response.data.units;
-  } catch (error) {
-    console.error('Error fetching RCM units:', error);
-    throw new Error(error.response?.data?.message || 'Failed to fetch RCM units');
-  }
-};
-
-// Create new RCM unit
-export const createRCMUnit = async (unitData) => {
-  try {
-    const response = await rcmAPI.post('/units', unitData);
-    return response.data;
-  } catch (error) {
-    console.error('Error creating RCM unit:', error);
-    throw new Error(error.response?.data?.message || 'Failed to create RCM unit');
-  }
-};
-
-// Fetch functions for a specific unit
-export const fetchRCMFunctionsForUnit = async (unitId) => {
-  try {
-    const response = await rcmAPI.get(`/units/${unitId}/functions`);
-    return response.data.functions;
-  } catch (error) {
-    console.error('Error fetching RCM functions for unit:', error);
-    throw new Error(error.response?.data?.message || 'Failed to fetch RCM functions');
-  }
-};
-
-// Create new function for a unit
-export const createRCMFunctionForUnit = async (unitId, functionData) => {
-  try {
-    const response = await rcmAPI.post(`/units/${unitId}/functions`, functionData);
-    return response.data;
-  } catch (error) {
-    console.error('Error creating RCM function:', error);
-    throw new Error(error.response?.data?.message || 'Failed to create RCM function');
-  }
-};
-
-// Fetch complete RCM analysis
+// Fetch RCM analysis for equipment
 export const fetchRCMAnalysis = async (equipmentId = null) => {
   try {
     let url = '/analysis';
@@ -83,7 +34,7 @@ export const fetchRCMAnalysis = async (equipmentId = null) => {
     }
     
     const response = await rcmAPI.get(url);
-    return response.data.rcm_analysis;
+    return response.data.rcm_analysis || [];
   } catch (error) {
     console.error('Error fetching RCM analysis:', error);
     throw new Error(error.response?.data?.message || 'Failed to fetch RCM analysis');
@@ -103,29 +54,34 @@ export const generateWorkOrders = async (equipmentId) => {
   }
 };
 
-// Import RCM data
-export const importRCMData = async (data) => {
-  try {
-    const response = await rcmAPI.post('/import', data);
-    return response.data;
-  } catch (error) {
-    console.error('Error importing RCM data:', error);
-    throw new Error(error.response?.data?.message || 'Failed to import RCM data');
-  }
-};
-
 // Upload RCM Excel file
 export const uploadRCMExcel = async (formData) => {
   try {
+    // For file uploads, we need to use the base axios instance with the right headers
+    const token = localStorage.getItem('token');
+    
     const response = await axios.post(`${API_URL}/rcm/upload-excel`, formData, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        // Don't set Content-Type here - it will be set automatically with the boundary
+        'Authorization': `Bearer ${token}`,
+        // Let the browser set the content type with boundary automatically
       }
     });
+    
     return response.data;
   } catch (error) {
     console.error('Error uploading RCM Excel:', error);
-    throw new Error(error.response?.data?.message || 'Failed to upload RCM Excel file');
+    
+    // Enhanced error handling
+    if (error.response && error.response.data) {
+      throw new Error(error.response.data.message || 'Failed to upload RCM Excel file');
+    }
+    
+    throw new Error('Failed to upload RCM Excel file: Network error');
   }
+};
+
+export default {
+  fetchRCMAnalysis,
+  generateWorkOrders,
+  uploadRCMExcel
 };

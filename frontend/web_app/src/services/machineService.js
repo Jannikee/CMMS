@@ -1,3 +1,4 @@
+// frontend/web_app/src/services/machineService.js
 import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -28,7 +29,7 @@ machineAPI.interceptors.request.use(
 export const fetchMachines = async () => {
   try {
     const response = await machineAPI.get('/');
-    return response.data.machines;
+    return response.data.machines || [];
   } catch (error) {
     console.error('Error fetching machines:', error);
     throw new Error(error.response?.data?.message || 'Failed to fetch machines');
@@ -57,11 +58,22 @@ export const createMachine = async (machineData) => {
   }
 };
 
+// Update machine
+export const updateMachine = async (id, machineData) => {
+  try {
+    const response = await machineAPI.put(`/${id}`, machineData);
+    return response.data;
+  } catch (error) {
+    console.error(`Error updating machine ${id}:`, error);
+    throw new Error(error.response?.data?.message || 'Failed to update machine');
+  }
+};
+
 // Fetch subsystems for a machine
 export const fetchSubsystems = async (machineId) => {
   try {
     const response = await machineAPI.get(`/${machineId}/subsystems`);
-    return response.data.subsystems;
+    return response.data.subsystems || [];
   } catch (error) {
     console.error(`Error fetching subsystems for machine ${machineId}:`, error);
     throw new Error(error.response?.data?.message || 'Failed to fetch subsystems');
@@ -83,7 +95,7 @@ export const createSubsystem = async (machineId, subsystemData) => {
 export const fetchSubsystemById = async (subsystemId) => {
   try {
     const response = await machineAPI.get(`/subsystems/${subsystemId}`);
-    return response.data.subsystem;
+    return response.data;
   } catch (error) {
     console.error(`Error fetching subsystem ${subsystemId}:`, error);
     throw new Error(error.response?.data?.message || 'Failed to fetch subsystem');
@@ -94,72 +106,76 @@ export const fetchSubsystemById = async (subsystemId) => {
 export const fetchComponents = async (subsystemId) => {
   try {
     const response = await machineAPI.get(`/subsystems/${subsystemId}/components`);
-    return response.data.components;
+    return response.data.components || [];
   } catch (error) {
     console.error(`Error fetching components for subsystem ${subsystemId}:`, error);
     throw new Error(error.response?.data?.message || 'Failed to fetch components');
   }
 };
 
-// Create a new component
-export const createComponent = async (subsystemId, componentData) => {
+// Fetch component hierarchy for a machine
+export const getComponentHierarchy = async (machineId) => {
   try {
-    const response = await machineAPI.post(`/subsystems/${subsystemId}/components`, componentData);
-    return response.data;
-  } catch (error) {
-    console.error(`Error creating component for subsystem ${subsystemId}:`, error);
-    throw new Error(error.response?.data?.message || 'Failed to create component');
-  }
-};
-
-// Fetch a single component by ID
-export const fetchComponentById = async (componentId) => {
-  try {
-    const response = await machineAPI.get(`/components/${componentId}`);
-    return response.data.component;
-  } catch (error) {
-    console.error(`Error fetching component ${componentId}:`, error);
-    throw new Error(error.response?.data?.message || 'Failed to fetch component');
-  }
-};
-
-// Upload machine component structure from Excel
-export const uploadComponentStructure = async (formData) => {
-  try {
-    const response = await axios.post(`${API_URL}/machines/upload-structure`, formData, {
+    console.log(`Fetching component hierarchy for machine ${machineId}`);
+    const token = localStorage.getItem('token');
+    
+    const response = await axios.get(`${API_URL}/machines/${machineId}`, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        // Don't set Content-Type here - it will be set automatically with the boundary
+        'Authorization': `Bearer ${token}`
       }
     });
+    
+    // Check if response contains the necessary data
+    if (response.data && response.data.machine) {
+      console.log("Hierarchy data fetched successfully");
+      
+      // Return formatted hierarchy data
+      return {
+        hierarchy: {
+          id: response.data.machine.id,
+          name: response.data.machine.name,
+          technical_id: response.data.machine.technical_id,
+          subsystems: response.data.machine.subsystems || []
+        }
+      };
+    } else {
+      console.warn("Machine data received but missing expected structure");
+      throw new Error('Machine data structure is invalid');
+    }
+  } catch (error) {
+    console.error(`Error fetching hierarchy for machine ${machineId}:`, error);
+    throw error;
+  }
+};
+
+// Upload component structure Excel file
+export const uploadComponentStructure = async (formData) => {
+  try {
+    const token = localStorage.getItem('token');
+    
+    const response = await axios.post(`${API_URL}/machines/upload-structure`, formData, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        // Don't set Content-Type - it will be set automatically
+      }
+    });
+    
     return response.data;
   } catch (error) {
     console.error('Error uploading component structure:', error);
     throw new Error(error.response?.data?.message || 'Failed to upload component structure');
   }
 };
-// Fetch component hierarchy for a machine
-export const fetchComponentHierarchy = async (machineId) => {
-  try {
-    const response = await axios.get(`${API_URL}/machines/hierarchy`, {
-      params: { machine_id: machineId },
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    return response.data.hierarchy;
-  } catch (error) {
-    console.error(`Error fetching hierarchy for machine ${machineId}:`, error);
-    throw new Error(error.response?.data?.message || 'Failed to fetch component hierarchy');
-  }
-};
-export const updateMachine = async (id, machineData) => {
-  try {
-    const response = await machineAPI.put(`/${id}`, machineData);
-    return response.data;
-  } catch (error) {
-    console.error(`Error updating machine ${id}:`, error);
-    throw new Error(error.response?.data?.message || 'Failed to update machine');
-  }
+
+export default {
+  fetchMachines,
+  fetchMachineById,
+  createMachine,
+  updateMachine,
+  fetchSubsystems,
+  createSubsystem,
+  fetchSubsystemById,
+  fetchComponents,
+  getComponentHierarchy,
+  uploadComponentStructure
 };

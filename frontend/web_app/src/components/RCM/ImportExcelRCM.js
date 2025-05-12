@@ -1,13 +1,45 @@
-// frontend/web_app/src/components/ImportExcelRCM.js
-import React, { useState } from 'react';
-import { Upload, Button, Form, Select, message } from 'antd';
+// frontend/web_app/src/components/RCM/ImportExcelRCM.js
+import React, { useState, useEffect } from 'react';
+import { Upload, Button, Form, Select, message, Spin } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
-import { uploadRCMExcel } from '../../services/api';
+import axios from 'axios';
 
-const ImportExcelRCM = ({ machines, onUploadSuccess }) => {
+const { Option } = Select;
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
+const ImportExcelRCM = ({ onUploadSuccess }) => {
   const [form] = Form.useForm();
   const [fileList, setFileList] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [machines, setMachines] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Fetch machines on component mount
+  useEffect(() => {
+    fetchMachines();
+  }, []);
+  
+  const fetchMachines = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      
+      const response = await axios.get(`${API_URL}/machines`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const machinesData = response.data.machines || [];
+      setMachines(machinesData);
+      console.log("Machines loaded for RCM import:", machinesData);
+    } catch (error) {
+      console.error("Error fetching machines for RCM import:", error);
+      message.error('Failed to load equipment list');
+    } finally {
+      setLoading(false);
+    }
+  };
   
   const handleUpload = async () => {
     try {
@@ -24,9 +56,25 @@ const ImportExcelRCM = ({ machines, onUploadSuccess }) => {
       
       setUploading(true);
       
-      const result = await uploadRCMExcel(formData);
+      // Direct fetch for better error handling
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/rcm/upload-excel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          // Content-Type is handled automatically for FormData
+        },
+        body: formData
+      });
       
-      message.success(`File uploaded successfully! Imported: ${result.imported.functions} functions, ${result.imported.failures} failures, ${result.imported.modes} failure modes`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Upload failed');
+      }
+      
+      const result = await response.json();
+      
+      message.success(`File uploaded successfully! Imported: ${result.imported.functions || 0} functions, ${result.imported.failures || 0} failures, ${result.imported.modes || 0} failure modes`);
       
       // Reset form and file list
       form.resetFields();
@@ -38,6 +86,7 @@ const ImportExcelRCM = ({ machines, onUploadSuccess }) => {
       }
       
     } catch (error) {
+      console.error("Upload error:", error);
       message.error(`Upload failed: ${error.message}`);
     } finally {
       setUploading(false);
@@ -63,6 +112,15 @@ const ImportExcelRCM = ({ machines, onUploadSuccess }) => {
     },
   };
   
+  if (loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '30px' }}>
+        <Spin size="large" />
+        <p>Loading equipment list...</p>
+      </div>
+    );
+  }
+  
   return (
     <div className="rcm-upload-container">
       <h3>Import RCM Analysis from Excel</h3>
@@ -73,11 +131,11 @@ const ImportExcelRCM = ({ machines, onUploadSuccess }) => {
           label="Select Equipment"
           rules={[{ required: true, message: 'Please select equipment' }]}
         >
-          <Select placeholder="Select equipment">
+          <Select placeholder="Select equipment" loading={loading}>
             {machines.map(machine => (
-              <Select.Option key={machine.id} value={machine.id}>
-                {machine.name}
-              </Select.Option>
+              <Option key={machine.id} value={machine.id}>
+                {machine.name} ({machine.technical_id || 'No ID'})
+              </Option>
             ))}
           </Select>
         </Form.Item>
@@ -104,6 +162,12 @@ const ImportExcelRCM = ({ machines, onUploadSuccess }) => {
           Konsekvens, Tiltak, Intervall_dager, Intervall_timer.
         </p>
       </div>
+      
+      {machines.length === 0 && !loading && (
+        <div style={{ marginTop: 16, color: '#ff4d4f' }}>
+          <p>No equipment found in the system. Please add equipment before importing RCM data.</p>
+        </div>
+      )}
     </div>
   );
 };
