@@ -329,6 +329,29 @@ def generate_work_orders():
         return jsonify(message="Equipment ID is required"), 400
     
     try:
+        # First check if there's any RCM data
+        units = RCMUnit.query.filter_by(equipment_id=equipment_id).count()
+        if units == 0:
+            return jsonify(
+                message="No RCM analysis found for this equipment. Please import RCM data first.",
+                work_orders=[]
+            ), 400
+        
+        # Check if there are any maintenance actions
+        maintenance_count = db.session.query(RCMMaintenance)\
+            .join(RCMFailureMode)\
+            .join(RCMFunctionalFailure)\
+            .join(RCMFunction)\
+            .join(RCMUnit)\
+            .filter(RCMUnit.equipment_id == equipment_id)\
+            .count()
+            
+        if maintenance_count == 0:
+            return jsonify(
+                message="No maintenance actions found in the RCM analysis.",
+                work_orders=[]
+            ), 400
+        
         from backend.services.work_order_generator import WorkOrderGenerator
         
         # Generate work orders based on RCM maintenance actions
@@ -340,13 +363,177 @@ def generate_work_orders():
                 'id': wo.id,
                 'title': wo.title,
                 'description': wo.description,
-                'due_date': wo.due_date.isoformat()
+                'due_date': wo.due_date.isoformat(),
+                'priority': wo.priority,
+                'type': wo.type
             } for wo in work_orders]
         )
     
     except Exception as e:
+        logger.error(f"Error generating work orders: {str(e)}", exc_info=True)
         return jsonify(message=f"Failed to generate work orders: {str(e)}"), 500
 
+@rcm_bp.route('/debug/<int:equipment_id>', methods=['GET'])
+@jwt_required()
+def debug_rcm_data(equipment_id):
+    """Debug endpoint to see what RCM data exists"""
+    
+    # Get all RCM data for this equipment
+    units = RCMUnit.query.filter_by(equipment_id=equipment_id).all()
+    
+    debug_info = {
+        'equipment_id': equipment_id,
+        'units': [],
+        'all_functions': [],
+        'all_maintenance_actions': []
+    }
+    
+    # Get all units
+    for unit in units:
+        unit_info = {
+            'id': unit.id,
+            'name': unit.name,
+            'technical_id': unit.technical_id,
+            'functions': []
+        }
+        
+        # Get functions for this unit
+        functions = RCMFunction.query.filter_by(unit_id=unit.id).all()
+        for func in functions:
+            func_info = {
+                'id': func.id,
+                'name': func.name,
+                'component_id': func.component_id,
+                'unit_id': func.unit_id,
+                'failures': []
+            }
+            
+            # Get failures for this function
+            failures = RCMFunctionalFailure.query.filter_by(function_id=func.id).all()
+            for failure in failures:
+                failure_info = {
+                    'id': failure.id,
+                    'name': failure.name,
+                    'modes': []
+                }
+                
+                # Get modes for this failure
+                modes = RCMFailureMode.query.filter_by(functional_failure_id=failure.id).all()
+                for mode in modes:
+                    mode_info = {
+                        'id': mode.id,
+                        'name': mode.name,
+                        'maintenance_actions': []
+                    }
+                    
+                    # Get maintenance actions
+                    actions = RCMMaintenance.query.filter_by(failure_mode_id=mode.id).all()
+                    for action in actions:
+                        mode_info['maintenance_actions'].append({
+                            'id': action.id,
+                            'title': action.title,
+                            'interval_hours': action.interval_hours,
+                            'interval_days': action.interval_days
+                        })
+                    
+                    failure_info['modes'].append(mode_info)
+                
+                func_info['failures'].append(failure_info)
+            
+            unit_info['functions'].append(func_info)
+        
+        debug_info['units'].append(unit_info)
+    
+    # Also get all functions directly
+    all_functions = RCMFunction.query.filter_by(equipment_id=equipment_id).all()
+    for func in all_functions:
+        debug_info['all_functions'].append({
+            'id': func.id,
+            'name': func.name,
+            'unit_id': func.unit_id,
+            'component_id': func.component_id
+        })
+    
+    # Get all maintenance actions
+    all_maintenance = db.session.query(RCMMaintenance)\
+        .join(RCMFailureMode)\
+        .join(RCMFunctionalFailure)\
+        .join(RCMFunction)\
+        .filter(RCMFunction.equipment_id == equipment_id)\
+        .all()
+    
+    for maint in all_maintenance:
+        debug_info['all_maintenance_actions'].append({
+            'id': maint.id,
+            'title': maint.title,
+            'interval_hours': maint.interval_hours,
+            'interval_days': maint.interval_days
+        })
+    
+    return jsonify(debug_info)
+@rcm_bp.route('/debug-detailed/<int:equipment_id>', methods=['GET'])
+@jwt_required()
+def debug_rcm_detailed(equipment_id):
+    """Detailed debug of RCM data"""
+    
+    # Get raw counts
+    unit_count = RCMUnit.query.filter_by(equipment_id=equipment_id).count()
+    
+    # Get all functions for this equipment (both through units and direct)
+    functions_via_units = db.session.query(RCMFunction)\
+        .join(RCMUnit, RCMFunction.unit_id == RCMUnit.id)\
+        .filter(RCMUnit.equipment_id == equipment_id)\
+        .count()
+    
+    functions_direct = RCMFunction.query.filter_by(equipment_id=equipment_id).count()
+    
+    # Get all data with details
+    units = RCMUnit.query.filter_by(equipment_id=equipment_id).all()
+    
+    debug_data = {
+        'summary': {
+            'equipment_id': equipment_id,
+            'unit_count': unit_count,
+            'functions_via_units': functions_via_units,
+            'functions_direct': functions_direct,
+            'total_functions': RCMFunction.query.count(),
+            'total_units': RCMUnit.query.count()
+        },
+        'units_detail': []
+    }
+    
+    for unit in units:
+        unit_data = {
+            'id': unit.id,
+            'name': unit.name,
+            'technical_id': unit.technical_id,
+            'equipment_id': unit.equipment_id,
+            'function_count': RCMFunction.query.filter_by(unit_id=unit.id).count(),
+            'functions': []
+        }
+        
+        # Get functions for this unit
+        functions = RCMFunction.query.filter_by(unit_id=unit.id).all()
+        for func in functions:
+            unit_data['functions'].append({
+                'id': func.id,
+                'name': func.name,
+                'equipment_id': func.equipment_id,
+                'unit_id': func.unit_id,
+                'component_id': func.component_id
+            })
+        
+        debug_data['units_detail'].append(unit_data)
+    
+    # Also check for orphaned functions
+    orphaned_functions = RCMFunction.query.filter_by(equipment_id=equipment_id, unit_id=None).all()
+    debug_data['orphaned_functions'] = [{
+        'id': f.id,
+        'name': f.name,
+        'equipment_id': f.equipment_id
+    } for f in orphaned_functions]
+    
+    return jsonify(debug_data)
 # Add file upload endpoint
 @rcm_bp.route('/upload-excel', methods=['POST'])
 @jwt_required()
@@ -410,3 +597,77 @@ def upload_excel():
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in {'xlsx', 'xls'}
+@rcm_bp.route('/test-create/<int:equipment_id>', methods=['POST'])
+@jwt_required()
+def test_create_rcm(equipment_id):
+    """Test endpoint to create sample RCM data"""
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    
+    if user.role not in ['supervisor', 'admin']:
+        return jsonify(message="Unauthorized"), 403
+    
+    try:
+        # Create a test unit
+        unit = RCMUnit(
+            name="Test Unit",
+            description="Test unit for debugging",
+            equipment_id=equipment_id,
+            technical_id="TEST.01"
+        )
+        db.session.add(unit)
+        db.session.flush()
+        
+        # Create a test function
+        function = RCMFunction(
+            name="Test Function",
+            description="Test function for debugging",
+            equipment_id=equipment_id,
+            unit_id=unit.id,
+            technical_id="TEST.01"
+        )
+        db.session.add(function)
+        db.session.flush()
+        
+        # Create a test failure
+        failure = RCMFunctionalFailure(
+            name="Test Failure",
+            description="Test failure",
+            function_id=function.id
+        )
+        db.session.add(failure)
+        db.session.flush()
+        
+        # Create a test mode
+        mode = RCMFailureMode(
+            name="Test Mode",
+            description="Test mode",
+            failure_type="Test",
+            detection_method="Visual",
+            functional_failure_id=failure.id
+        )
+        db.session.add(mode)
+        db.session.flush()
+        
+        # Create a test maintenance action
+        maintenance = RCMMaintenance(
+            title="Test Maintenance",
+            description="Test maintenance action",
+            maintenance_type="preventive",
+            interval_days=30,
+            failure_mode_id=mode.id
+        )
+        db.session.add(maintenance)
+        
+        db.session.commit()
+        
+        return jsonify({
+            "message": "Test RCM data created successfully",
+            "unit_id": unit.id,
+            "function_id": function.id,
+            "maintenance_id": maintenance.id
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify(message=f"Error creating test data: {str(e)}"), 500

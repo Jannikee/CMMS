@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 class RCMImportService:
     @staticmethod
+    # In backend/services/import_service.py, update the import_from_excel method in RCMImportService:
     def import_from_excel(file_path, equipment_id):
         """Import RCM analysis from Excel file with headers on the second/third row"""
         try:
@@ -40,197 +41,88 @@ class RCMImportService:
             sheet_names = excel_file.sheet_names
             logger.info(f"Excel sheets found: {sheet_names}")
             
-            # Try to find the RCM sheet with flexible sheet name detection
+            # Try to find the RCM sheet
             target_sheet = None
-            
-            # First look for exact matches
-            for candidate in ["RCM", "RCM Analysis", "RCM Analyse", "Analyseobejkt"]:
-                if candidate in sheet_names:
-                    target_sheet = candidate
+            for sheet in sheet_names:
+                sheet_lower = sheet.lower()
+                if 'rcm' in sheet_lower or 'analyse' in sheet_lower:
+                    target_sheet = sheet
                     break
             
-            # If no exact match, look for sheets containing "RCM" in their name
-            if not target_sheet:
-                for sheet in sheet_names:
-                    if "rcm" in sheet.lower() or "analyse" in sheet.lower():
-                        target_sheet = sheet
-                        break
-            
-            # If still no match, use the first sheet but warn about it
-            if not target_sheet:
-                logger.warning(f"No RCM-related sheet found. Using first sheet: {sheet_names[0]}")
+            if not target_sheet and len(sheet_names) > 0:
                 target_sheet = sheet_names[0]
-            else:
-                logger.info(f"Found RCM sheet: {target_sheet}")
+                logger.info(f"No RCM sheet found, using first sheet: {target_sheet}")
             
-            # First, try to identify the header row by reading the first few rows
-            potential_headers = []
-            for i in range(5):  # Check first 5 rows for headers
-                # Read just this row
-                try:
-                    header_row = pd.read_excel(file_path, sheet_name=target_sheet, header=None, nrows=1, skiprows=i)
-                    potential_headers.append((i, header_row.iloc[0].tolist()))
-                    logger.info(f"Row {i+1} content: {header_row.iloc[0].tolist()}")
-                except Exception as e:
-                    logger.error(f"Error reading row {i}: {e}")
-                    continue
+            # Read the sheet without headers first to inspect structure
+            df_raw = pd.read_excel(file_path, sheet_name=target_sheet, header=None)
+            logger.info(f"Sheet has {len(df_raw)} rows and {len(df_raw.columns)} columns")
             
-            # Identify which row looks like a header row by checking for key column names
-            header_row_index = 0  # Default to first row
-            header_keywords = ['funksjon', 'function', 'sviktmode', 'failure', 'effekt', 'effect', 'konsekvens']
+            # Log first few rows to see structure
+            for i in range(min(5, len(df_raw))):
+                logger.info(f"Row {i}: {df_raw.iloc[i].tolist()}")
             
-            for idx, row_content in potential_headers:
-                # Convert to string and lowercase for comparison
-                row_content_str = [str(cell).lower() if cell is not None else '' for cell in row_content]
-                # Count how many header keywords appear in this row
-                keyword_matches = sum(1 for keyword in header_keywords if any(keyword in cell for cell in row_content_str))
-                logger.info(f"Row {idx+1} has {keyword_matches} header keyword matches")
-                
-                if keyword_matches >= 2:  # If at least 2 header keywords found
-                    header_row_index = idx
-                    logger.info(f"Selected row {idx+1} as the header row")
+            # Find the header row by looking for key words
+            header_row = None
+            for i in range(min(10, len(df_raw))):
+                row_values = df_raw.iloc[i].astype(str).str.lower().tolist()
+                # Check if this row contains header keywords
+                if any('funksjon' in str(val) for val in row_values) or \
+                any('function' in str(val) for val in row_values):
+                    header_row = i
+                    logger.info(f"Found header row at index {header_row}")
                     break
             
-            # Now read the Excel with the appropriate header row
-            df = pd.read_excel(file_path, sheet_name=target_sheet, header=header_row_index)
+            if header_row is None:
+                logger.warning("Could not find header row, defaulting to row 1")
+                header_row = 1
             
-            # Log columns found
-            logger.info(f"Excel columns found after header detection: {df.columns.tolist()}")
+            # Read the Excel file with the identified header row
+            df = pd.read_excel(file_path, sheet_name=target_sheet, header=header_row)
+            logger.info(f"Columns found: {df.columns.tolist()}")
             
-            # Handle the case where headers might contain NaN or None
-            df.columns = [str(col) if col is not None else f"Unnamed_{i}" for i, col in enumerate(df.columns)]
-            logger.info(f"Cleaned column names: {df.columns.tolist()}")
+            # Clean column names
+            df.columns = [str(col).strip() for col in df.columns]
             
-            # Find the key columns by inspecting all column names
-            function_col = None
-            failure_col = None
-            mode_col = None
-            effect_col = None
-            strategy_col = None
-            interval_col = None
-            unit_col = None
+            # Map columns (be flexible with column names)
+            column_map = {
+                'unit': None,
+                'function': None,
+                'failure': None,
+                'mode': None,
+                'effect': None,
+                'interval': None,
+                'strategy': None
+            }
             
-            # Check each column for potential matches
+            # Try to identify columns
             for col in df.columns:
-                col_lower = str(col).lower()
-                
-                # Function column
-                if any(keyword in col_lower for keyword in ['funksjon', 'function', 'virkemåte']):
-                    function_col = col
-                    logger.info(f"Found function column: {col}")
-                
-                # Functional Failure column
-                elif any(keyword in col_lower for keyword in ['funksjonsfeil', 'functional failure']):
-                    failure_col = col
-                    logger.info(f"Found failure column: {col}")
-                
-                # Failure Mode column
-                elif any(keyword in col_lower for keyword in ['sviktmode', 'failure mode', 'feilmåte']):
-                    mode_col = col
-                    logger.info(f"Found mode column: {col}")
-                
-                # Effect column
-                elif any(keyword in col_lower for keyword in ['effekt', 'effect', 'konsekvens']):
-                    effect_col = col
-                    logger.info(f"Found effect column: {col}")
-                
-                # Strategy column
-                elif any(keyword in col_lower for keyword in ['strategi', 'strategy', 'håndtering']):
-                    strategy_col = col
-                    logger.info(f"Found strategy column: {col}")
-                
-                # Interval column
-                elif any(keyword in col_lower for keyword in ['mtf', 'intervall', 'interval', 'timer']):
-                    interval_col = col
-                    logger.info(f"Found interval column: {col}")
-                
-                # Unit column
-                elif any(keyword in col_lower for keyword in ['enhet', 'unit']):
-                    unit_col = col
-                    logger.info(f"Found unit column: {col}")
+                col_lower = col.lower()
+                if 'enhet' in col_lower or 'unit' in col_lower:
+                    column_map['unit'] = col
+                elif 'funksjon' in col_lower and 'feil' not in col_lower:
+                    column_map['function'] = col
+                elif 'funksjonsfeil' in col_lower or 'functional' in col_lower:
+                    column_map['failure'] = col
+                elif 'svikt' in col_lower or 'mode' in col_lower:
+                    column_map['mode'] = col
+                elif 'effekt' in col_lower or 'effect' in col_lower or 'konsekvens' in col_lower:
+                    column_map['effect'] = col
+                elif 'mtf' in col_lower or 'intervall' in col_lower or 'timer' in col_lower:
+                    column_map['interval'] = col
+                elif 'strategi' in col_lower or 'strategy' in col_lower:
+                    column_map['strategy'] = col
             
-            # Check if we identified the critical columns
-            missing_cols = []
-            if not function_col:
-                missing_cols.append("function")
-            if not failure_col:
-                missing_cols.append("failure")
-            if not mode_col:
-                missing_cols.append("mode")
-            if not effect_col:
-                missing_cols.append("effect")
-                
-            if missing_cols:
-                # Try an alternative approach - check each row for column indexes
-                logger.info("Trying alternative approach to find columns...")
-                
-                # Read first few rows again without header
-                alt_df = pd.read_excel(file_path, sheet_name=target_sheet, header=None, nrows=10)
-                
-                # Look for column indexes based on header names in first few rows
-                for i in range(min(10, len(alt_df))):
-                    row = alt_df.iloc[i]
-                    for j, cell in enumerate(row):
-                        if not pd.isna(cell):
-                            cell_str = str(cell).lower()
-                            # Check for function column
-                            if "funksjon" in cell_str and not function_col:
-                                function_col = j
-                                logger.info(f"Alt method: Found function column at index {j}")
-                            # Check for failure column
-                            elif "funksjonsfeil" in cell_str and not failure_col:
-                                failure_col = j
-                                logger.info(f"Alt method: Found failure column at index {j}")
-                            # Check for mode column
-                            elif "sviktmode" in cell_str and not mode_col:
-                                mode_col = j
-                                logger.info(f"Alt method: Found mode column at index {j}")
-                            # Check for effect column
-                            elif ("effekt" in cell_str or "konsekvens" in cell_str) and not effect_col:
-                                effect_col = j
-                                logger.info(f"Alt method: Found effect column at index {j}")
-                
-                # If we still haven't found all required columns, use column index based on screenshot
-                if not function_col:
-                    function_col = 1  # Column B (0-indexed)
-                    logger.info("Using default index 1 for function column (B)")
-                if not failure_col:
-                    failure_col = 2  # Column C
-                    logger.info("Using default index 2 for failure column (C)")
-                if not mode_col:
-                    mode_col = 3  # Column D
-                    logger.info("Using default index 3 for mode column (D)")
-                if not effect_col:
-                    effect_col = 5  # Column F
-                    logger.info("Using default index 5 for effect column (F)")
-                if not interval_col:
-                    interval_col = 7  # Column H
-                    logger.info("Using default index 7 for interval column (H)")
-                if not strategy_col:
-                    strategy_col = 23  # Column X
-                    logger.info("Using default index 23 for strategy column (X)")
-                
-                # Re-read with numeric indexes for columns
-                df = pd.read_excel(file_path, sheet_name=target_sheet, header=None, skiprows=header_row_index+1)
-                
-                """# Check if we have enough columns
-                if len(df.columns) < max(int(function_col), int(failure_col), int(mode_col), int(effect_col)):
-                    return {
-                        "success": False,
-                        "message": f"Excel file doesn't have enough columns. Expected at least {max(function_col, failure_col, mode_col, effect_col)+1} columns."
-                    }"""
+            logger.info(f"Column mapping: {column_map}")
             
-            # Track created objects to link them correctly
-            units_map = {}       # name -> object
-            functions_map = {}  # name -> object
-            failures_map = {}   # (function_id, name) -> object
-            modes_map = {}      # (failure_id, name) -> object
+            # Verify we have the essential columns
+            if not column_map['function'] or not column_map['mode']:
+                logger.error("Missing essential columns (function or mode)")
+                return {
+                    "success": False,
+                    "message": "Could not identify required columns in Excel file"
+                }
             
-            # Process each row
-            current_unit = None
-            current_function = None
-            current_failure = None
-            
+            # Initialize counters
             imported = {
                 'units': 0,
                 'functions': 0,
@@ -240,224 +132,230 @@ class RCMImportService:
                 'maintenance_actions': 0
             }
             
-            # Skip headers when processing data
-            for _, row in df.iterrows():
-                # Skip rows that seem like headers
-                if any(keyword in str(row.get(function_col, "")).lower() 
-                      for keyword in ["funksjon", "function", "virkemåte"]):
-                    logger.info(f"Skipping header row: {row.get(function_col)}")
-                    continue
-                
-                # Get unit name (if available)
-                unit_name = row.get(unit_col) if unit_col else None
-                
-                # Get function name - handle index or column name access
-                function_name = None
+            # Track created objects
+            units_map = {}
+            functions_map = {}
+            failures_map = {}
+            
+            # Process each row
+            current_unit = None
+            default_unit = None
+            
+            # Create a default unit if none specified
+            default_unit = RCMUnit(
+                name="Equipment Unit",
+                description=f"Main unit for equipment {equipment_id}",
+                equipment_id=equipment_id,
+                technical_id=""
+            )
+            db.session.add(default_unit)
+            db.session.flush()
+            units_map["default"] = default_unit
+            imported['units'] += 1
+            
+            # Process data rows
+            # Process data rows
+            for idx, row in df.iterrows():
                 try:
-                    if isinstance(function_col, int):
-                        function_name = row.iloc[function_col] if function_col < len(row) else None
-                    else:
-                        function_name = row.get(function_col)
-                except Exception as e:
-                    logger.error(f"Error accessing function column: {e}")
-                
-                # Get failure name
-                failure_name = None
-                try:
-                    if isinstance(failure_col, int):
-                        failure_name = row.iloc[failure_col] if failure_col < len(row) else None
-                    else:
-                        failure_name = row.get(failure_col)
-                except Exception as e:
-                    logger.error(f"Error accessing failure column: {e}")
-                
-                # Get mode name
-                mode_name = None
-                try:
-                    if isinstance(mode_col, int):
-                        mode_name = row.iloc[mode_col] if mode_col < len(row) else None
-                    else:
-                        mode_name = row.get(mode_col)
-                except Exception as e:
-                    logger.error(f"Error accessing mode column: {e}")
-                
-                # Get effect description
-                effect_desc = None
-                try:
-                    if isinstance(effect_col, int):
-                        effect_desc = row.iloc[effect_col] if effect_col < len(row) else None
-                    else:
-                        effect_desc = row.get(effect_col)
-                except Exception as e:
-                    logger.error(f"Error accessing effect column: {e}")
-                
-                # Get strategy
-                strategy = None
-                if strategy_col:
-                    try:
-                        if isinstance(strategy_col, int):
-                            strategy = row.iloc[strategy_col] if strategy_col < len(row) else None
-                        else:
-                            strategy = row.get(strategy_col)
-                    except Exception as e:
-                        logger.error(f"Error accessing strategy column: {e}")
-                
-                # Get interval
-                interval_hours = None
-                if interval_col:
-                    try:
-                        interval_value = None
-                        if isinstance(interval_col, int):
-                            interval_value = row.iloc[interval_col] if interval_col < len(row) else None
-                        else:
-                            interval_value = row.get(interval_col)
-                            
-                        if pd.notna(interval_value) and interval_value != "" and interval_value is not None:
-                            try:
-                                interval_hours = float(interval_value)
-                            except (ValueError, TypeError):
-                                logger.warning(f"Could not convert interval value '{interval_value}' to float")
-                    except Exception as e:
-                        logger.error(f"Error accessing interval column: {e}")
-                
-                # Skip rows with missing essential data
-                if (pd.isna(function_name) or function_name is None or function_name == "") and \
-                   (pd.isna(failure_name) or failure_name is None or failure_name == "") and \
-                   (pd.isna(mode_name) or mode_name is None or mode_name == "") and \
-                   (pd.isna(effect_desc) or effect_desc is None or effect_desc == ""):
-                    continue
-                
-                # Handle Unit
-                if unit_name and not pd.isna(unit_name) and str(unit_name).strip() != "":
-                    unit_name = str(unit_name).strip()
-                    if unit_name not in units_map:
-                        unit = RCMUnit(
-                            name=unit_name,
-                            description=f"Unit imported from Excel: {unit_name}",
-                            equipment_id=equipment_id,
-                            technical_id=''
-                        )
-                        db.session.add(unit)
-                        db.session.flush()  # Get ID without committing
-                        units_map[unit_name] = unit
-                        imported['units'] += 1
+                    # Skip empty rows
+                    if pd.isna(row.get(column_map['function'], '')):
+                        continue
                     
-                    current_unit = units_map[unit_name]
-                
-                # If no unit is specified, use a default unit
-                if not current_unit:
-                    default_unit_name = "Default Unit"
-                    if default_unit_name not in units_map:
-                        unit = RCMUnit(
-                            name=default_unit_name,
-                            description="Default unit created during import",
-                            equipment_id=equipment_id
-                        )
-                        db.session.add(unit)
-                        db.session.flush()
-                        units_map[default_unit_name] = unit
-                        imported['units'] += 1
+                    # Get values from row
+                    unit_val = row.get(column_map['unit']) if column_map['unit'] else None
+                    function_val = row.get(column_map['function'])
+                    failure_val = row.get(column_map['failure']) if column_map['failure'] else None
+                    mode_val = row.get(column_map['mode']) if column_map['mode'] else None
+                    effect_val = row.get(column_map['effect']) if column_map['effect'] else None
+                    interval_val = row.get(column_map['interval']) if column_map['interval'] else None
+                    strategy_val = row.get(column_map['strategy']) if column_map['strategy'] else None
                     
-                    current_unit = units_map[default_unit_name]
-                        
-                # Handle function - must have unit
-                if function_name and not pd.isna(function_name) and str(function_name).strip() != "":
-                    function_name = str(function_name).strip()
-                    if function_name not in functions_map:
+                    # Log what we're processing
+                    logger.info(f"Row {idx}: function='{function_val}', unit='{unit_val}'")
+                    
+                    # Skip if no meaningful data
+                    if pd.isna(function_val) or str(function_val).strip() == '':
+                        continue
+                    
+                    # Handle unit
+                    if unit_val and not pd.isna(unit_val) and str(unit_val).strip() != '':
+                        unit_str = str(unit_val).strip()
+                        if unit_str not in units_map:
+                            unit = RCMUnit(
+                                name=unit_str,
+                                description=f"Unit: {unit_str}",
+                                equipment_id=equipment_id,
+                                technical_id=unit_str if '.' in unit_str else ""
+                            )
+                            db.session.add(unit)
+                            db.session.flush()
+                            units_map[unit_str] = unit
+                            imported['units'] += 1
+                            logger.info(f"Created unit: {unit_str} with ID {unit.id}")
+                        current_unit = units_map[unit_str]
+                    else:
+                        current_unit = default_unit
+                    
+                    # Handle function - FIXED: ensure we actually create it
+                    function_str = str(function_val).strip()
+                    function_key = f"{current_unit.id}_{function_str}"
+                    
+                    if function_key not in functions_map:
+                        # Create the function
                         function = RCMFunction(
-                            name=function_name,
-                            description='',  # No description in the example
+                            name=function_str,
+                            description="",
                             equipment_id=equipment_id,
-                            technical_id='',
-                            unit_id=current_unit.id
+                            unit_id=current_unit.id,
+                            technical_id=current_unit.technical_id if hasattr(current_unit, 'technical_id') else ""
                         )
                         db.session.add(function)
-                        db.session.flush()  # Get ID without committing
-                        functions_map[function_name] = function
+                        db.session.flush()  # Important: flush to get the ID
+                        
+                        functions_map[function_key] = function
                         imported['functions'] += 1
+                        logger.info(f"Created function: '{function_str}' with ID {function.id} for unit {current_unit.id}")
+                    else:
+                        logger.info(f"Function already exists: '{function_str}'")
                     
-                    current_function = functions_map[function_name]
-                
-                # Skip if no current function
-                if not current_function:
+                    current_function = functions_map[function_key]
+                    
+                    # Handle functional failure
+                    if failure_val and not pd.isna(failure_val):
+                        failure_str = str(failure_val).strip()
+                        failure_key = f"{current_function.id}_{failure_str}"
+                        
+                        if failure_key not in failures_map:
+                            failure = RCMFunctionalFailure(
+                                name=failure_str,
+                                description="",
+                                function_id=current_function.id
+                            )
+                            db.session.add(failure)
+                            db.session.flush()
+                            failures_map[failure_key] = failure
+                            imported['failures'] += 1
+                        
+                        current_failure = failures_map[failure_key]
+                        
+                        # Handle failure mode
+                        if mode_val and not pd.isna(mode_val):
+                            mode_str = str(mode_val).strip()
+                            
+                            mode = RCMFailureMode(
+                                name=mode_str,
+                                description="",
+                                failure_type="",
+                                detection_method="",
+                                functional_failure_id=current_failure.id
+                            )
+                            db.session.add(mode)
+                            db.session.flush()
+                            imported['modes'] += 1
+                            
+                            # Handle effect
+                            if effect_val and not pd.isna(effect_val):
+                                effect = RCMFailureEffect(
+                                    description=str(effect_val).strip(),
+                                    severity="Medium",
+                                    failure_mode_id=mode.id,
+                                    safety_impact="",
+                                    environmental_impact="",
+                                    operational_impact="",
+                                    economic_impact=""
+                                )
+                                db.session.add(effect)
+                                imported['effects'] += 1
+                            # Handle maintenance action - FIXED SECTION
+                            # Check both strategy and interval columns
+                            has_maintenance = False
+                            maintenance_title = ""
+                            maintenance_desc = ""
+                            interval_hours = None
+                            interval_days = None
+                            
+                            # Get strategy/maintenance description
+                            if strategy_val and not pd.isna(strategy_val) and str(strategy_val).strip():
+                                has_maintenance = True
+                                maintenance_desc = str(strategy_val).strip()
+                                maintenance_title = f"{maintenance_desc} - {mode_str[:50]}"  # Limit title length
+                                logger.info(f"Found strategy: {maintenance_desc}")
+                            
+                            # Get interval value
+                            if interval_val and not pd.isna(interval_val):
+                                try:
+                                    # Handle different interval formats
+                                    interval_str = str(interval_val).strip()
+                                    
+                                    # Remove any text, keep only numbers
+                                    import re
+                                    numbers = re.findall(r'\d+[\.,]?\d*', interval_str)
+                                    if numbers:
+                                        interval_value = float(numbers[0].replace(',', '.'))
+                                        
+                                        # Assume the interval is in hours if column mentions "timer" or "hours"
+                                        # You can adjust this logic based on your Excel structure
+                                        if column_map['interval'] and ('timer' in column_map['interval'].lower() or 
+                                                                    'hour' in column_map['interval'].lower() or
+                                                                    'mtf' in column_map['interval'].lower()):
+                                            interval_hours = interval_value
+                                            logger.info(f"Set interval_hours to {interval_hours}")
+                                        else:
+                                            # Otherwise assume days
+                                            interval_days = int(interval_value)
+                                            logger.info(f"Set interval_days to {interval_days}")
+                                            
+                                        has_maintenance = True
+                                except Exception as e:
+                                    logger.warning(f"Could not parse interval '{interval_val}': {e}")
+                            
+                            # Create maintenance action if we have any maintenance info
+                            if has_maintenance:
+                                # If we don't have a title from strategy, create one
+                                if not maintenance_title:
+                                    maintenance_title = f"Maintenance for {mode_str[:50]}"
+                                
+                                # Determine maintenance type based on strategy keywords
+                                maintenance_type = 'preventive'  # default
+                                if maintenance_desc:
+                                    desc_lower = maintenance_desc.lower()
+                                    if any(word in desc_lower for word in ['inspeksjon', 'inspection', 'visuell', 'visual']):
+                                        maintenance_type = 'inspection'
+                                    elif any(word in desc_lower for word in ['test', 'funksjonstest', 'testing']):
+                                        maintenance_type = 'testing'
+                                    elif any(word in desc_lower for word in ['smøring', 'lubrication', 'olje']):
+                                        maintenance_type = 'lubrication'
+                                    elif any(word in desc_lower for word in ['bytte', 'replace', 'skifte']):
+                                        maintenance_type = 'replacement'
+                                
+                                maintenance = RCMMaintenance(
+                                    title=maintenance_title[:255],  # Ensure title isn't too long
+                                    description=maintenance_desc or "Maintenance action from RCM analysis",
+                                    maintenance_type=maintenance_type,
+                                    interval_hours=interval_hours,
+                                    interval_days=interval_days,
+                                    failure_mode_id=mode.id,
+                                    maintenance_strategy=maintenance_desc or ""
+                                )
+                                db.session.add(maintenance)
+                                db.session.flush()
+                                imported['maintenance_actions'] += 1
+                                logger.info(f"Created maintenance action: {maintenance_title} with interval_hours={interval_hours}, interval_days={interval_days}")
+                            else:
+                                logger.info(f"No maintenance action created for mode: {mode_str} (no strategy or interval found)")
+                    
+                except Exception as e:
+                    logger.error(f"Error processing row {idx}: {str(e)}")
                     continue
-                
-                # Handle functional failure
-                if failure_name and not pd.isna(failure_name) and str(failure_name).strip() != "":
-                    failure_name = str(failure_name).strip()
-                    failure_key = (current_function.id, failure_name)
-                    if failure_key not in failures_map:
-                        failure = RCMFunctionalFailure(
-                            name=failure_name,
-                            description='',  # No description in the example
-                            function_id=current_function.id
-                        )
-                        db.session.add(failure)
-                        db.session.flush()
-                        failures_map[failure_key] = failure
-                        imported['failures'] += 1
-                    
-                    current_failure = failures_map[failure_key]
-                
-                # Skip if no current failure
-                if not current_failure:
-                    continue
-                
-                # Handle failure mode
-                if mode_name and not pd.isna(mode_name) and str(mode_name).strip() != "":
-                    mode_name = str(mode_name).strip()
-                    mode_key = (current_failure.id, mode_name)
-                    
-                    if mode_key not in modes_map:
-                        mode = RCMFailureMode(
-                            name=mode_name,
-                            description='',  # No description in the example
-                            failure_type='',
-                            detection_method='',
-                            functional_failure_id=current_failure.id
-                        )
-                        db.session.add(mode)
-                        db.session.flush()
-                        modes_map[mode_key] = mode
-                        imported['modes'] += 1
-                    
-                    current_mode = modes_map[mode_key]
-                    
-                    # Handle failure effect if present
-                    if effect_desc and not pd.isna(effect_desc) and str(effect_desc).strip() != "":
-                        effect_desc = str(effect_desc).strip()
-                        effect = RCMFailureEffect(
-                            description=effect_desc,
-                            severity='',  # No severity in the example
-                            failure_mode_id=current_mode.id,
-                            safety_impact='',
-                            environmental_impact='',
-                            operational_impact='',
-                            economic_impact=''
-                        )
-                        db.session.add(effect)
-                        imported['effects'] += 1
-                    
-                    # Handle maintenance action if present (using strategy)
-                    if strategy and not pd.isna(strategy) and str(strategy).strip() != "":
-                        strategy = str(strategy).strip()
-                        maintenance = RCMMaintenance(
-                            title=f"Maintenance for {mode_name}",
-                            description=strategy,
-                            maintenance_type='preventive',  # Default
-                            interval_hours=interval_hours,
-                            interval_days=None,  # No days interval in the example
-                            failure_mode_id=current_mode.id,
-                            maintenance_strategy=strategy
-                        )
-                        db.session.add(maintenance)
-                        imported['maintenance_actions'] += 1
             
             # Commit all changes
             db.session.commit()
             
+            logger.info(f"Import completed: {imported}")
+            
             return {
                 "success": True,
+                "message": f"Successfully imported RCM data",
                 "imported": imported,
                 "sheet_name": target_sheet
             }
@@ -465,10 +363,37 @@ class RCMImportService:
         except Exception as e:
             db.session.rollback()
             logger.error(f"Error importing RCM data: {str(e)}", exc_info=True)
-            raise e
+            return {
+                "success": False,
+                "message": f"Import failed: {str(e)}"
+            }
         finally:
             if 'excel_file' in locals():
                 excel_file.close()
+
+
+    def extract_component_from_failure_mode(failure_mode_text):
+        """Extract component name from failure mode text"""
+        if not failure_mode_text:
+            return None
+        
+        text = str(failure_mode_text).strip()
+        
+        # Pattern: "Problem - Component"
+        if ' - ' in text:
+            parts = text.split(' - ')
+            if len(parts) >= 2:
+                return parts[-1].strip()
+        
+        # Pattern: "Problem i/på/av Component"
+        keywords = ['i ', 'på ', 'av ', 'hos ', 'ved ']
+        for keyword in keywords:
+            if keyword in text.lower():
+                parts = text.split(keyword, 1)
+                if len(parts) > 1:
+                    return parts[1].strip().capitalize()
+        
+        return None
 
 def import_hierarchy_from_excel(file_path):
     """Import machine hierarchy from Excel file"""

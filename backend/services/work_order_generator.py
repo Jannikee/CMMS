@@ -208,108 +208,127 @@ class WorkOrderGenerator:
         
         return work_orders_created
 
+    # In backend/services/work_order_generator.py, update the generate_from_rcm method:
+
     @staticmethod
     def generate_from_rcm(equipment_id):
         """Generate work orders based on RCM analysis"""
+        from backend.models.machine import Machine
+        from backend.models.work_order import WorkOrder
+        from backend.models.rcm import RCMMaintenance, RCMFailureMode, RCMFunctionalFailure, RCMFunction, RCMUnit
+        from datetime import datetime, timedelta, timezone
+        
         # Verify equipment exists
         machine = Machine.query.get(equipment_id)
         if not machine:
             raise ValueError(f"Machine with ID {equipment_id} not found")
         
-        # Find RCM units for this equipment
-        units = RCMUnit.query.filter_by(equipment_id=equipment_id).all()
+        logger.info(f"Generating work orders for equipment {equipment_id} - {machine.name}")
         
         created_work_orders = []
         
-        # Get the current date and time (with timezone info)
-        current_time = datetime.now(timezone.utc)
+        # Get all maintenance actions for this equipment through the RCM hierarchy
+        maintenance_actions = db.session.query(
+            RCMMaintenance,
+            RCMFailureMode,
+            RCMFunctionalFailure,
+            RCMFunction,
+            RCMUnit
+        ).join(
+            RCMFailureMode, RCMMaintenance.failure_mode_id == RCMFailureMode.id
+        ).join(
+            RCMFunctionalFailure, RCMFailureMode.functional_failure_id == RCMFunctionalFailure.id
+        ).join(
+            RCMFunction, RCMFunctionalFailure.function_id == RCMFunction.id
+        ).join(
+            RCMUnit, RCMFunction.unit_id == RCMUnit.id
+        ).filter(
+            RCMUnit.equipment_id == equipment_id
+        ).all()
         
-        # Iterate through the RCM hierarchy to find maintenance actions
-        for unit in units:
-            for function in unit.functions:
-                for failure in function.functional_failures:
-                    for mode in failure.failure_modes:
-                        # Get maintenance actions for this failure mode
-                        maintenance_actions = RCMMaintenance.query.filter_by(failure_mode_id=mode.id).all()
-                        
-                        for action in maintenance_actions:
-                            # Determine work order type based on maintenance type
-                            work_order_type = 'preventive'
-                            if action.maintenance_type:
-                                if 'predict' in action.maintenance_type.lower():
-                                    work_order_type = 'predictive'
-                                elif 'correct' in action.maintenance_type.lower():
-                                    work_order_type = 'corrective'
-                            
-                            # Determine due date based on intervals
-                            due_date = current_time + timedelta(days=7)  # Default to a week
-                            
-                            if action.interval_days:
-                                due_date = current_time + timedelta(days=action.interval_days)
-                            elif action.interval_hours and machine.hour_counter:
-                                # Convert hours to estimated days based on average usage
-                                # Assuming 8 hours of operation per day
-                                estimated_days = action.interval_hours / 8
-                                due_date = current_time + timedelta(days=estimated_days)
-                            
-                            # Check if a similar work order already exists and is still open
-                            existing_order = WorkOrder.query.filter(
-                                WorkOrder.machine_id == equipment_id,
-                                WorkOrder.title.like(f"%{action.title}%"),
-                                WorkOrder.status != 'completed',
-                                WorkOrder.generation_source == 'rcm'
-                            ).first()
-                            
-                            if not existing_order:
-                                # Determine priority based on the effects
-                                priority = 'normal'
-                                
-                                # Try to find severity info from effects
-                                effects = RCMFailureEffect.query.filter_by(failure_mode_id=mode.id).all()
-                                if effects:
-                                    # Find the highest severity effect
-                                    severities = [e.severity for e in effects if e.severity]
-                                    if 'critical' in [s.lower() for s in severities]:
-                                        priority = 'critical'
-                                    elif 'high' in [s.lower() for s in severities]:
-                                        priority = 'high'
-                                    elif 'low' in [s.lower() for s in severities]:
-                                        priority = 'low'
-                                
-                                # Create a description that includes the RCM context
-                                description = f"{action.description or action.title}\n\n"
-                                description += f"RCM Context:\n"
-                                description += f"- Unit: {unit.name}\n"
-                                description += f"- Function: {function.name}\n"
-                                description += f"- Functional Failure: {failure.name}\n"
-                                description += f"- Failure Mode: {mode.name}\n"
-                                
-                                # Add effects information if available
-                                if effects:
-                                    description += "\nPotential Effects:\n"
-                                    for effect in effects:
-                                        description += f"- {effect.description} (Severity: {effect.severity or 'Not specified'})\n"
-                                
-                                # Create the work order
-                                work_order = WorkOrder(
-                                    title=action.title,
-                                    description=description,
-                                    due_date=due_date,
-                                    status='open',
-                                    priority=priority,
-                                    type=work_order_type,
-                                    frequency= 'periodic',  # Added for mobile_app tabs
-                                    category='rcm_maintenance',
-                                    machine_id=equipment_id,
-                                    reason=f"RCM-based maintenance for {unit.name} > {function.name} > {failure.name} > {mode.name}",
-                                    generation_source='rcm'
-                                )
-                                
-                                db.session.add(work_order)
-                                created_work_orders.append(work_order)
+        logger.info(f"Found {len(maintenance_actions)} maintenance actions for equipment {equipment_id}")
+        
+        for maint, mode, failure, function, unit in maintenance_actions:
+            try:
+                # Determine work order type based on maintenance type
+                work_order_type = 'preventive'
+                if maint.maintenance_type:
+                    if 'predict' in maint.maintenance_type.lower():
+                        work_order_type = 'predictive'
+                    elif 'correct' in maint.maintenance_type.lower():
+                        work_order_type = 'corrective'
+                
+                # Determine due date based on intervals
+                due_date = datetime.now(timezone.utc) + timedelta(days=7)  # Default to a week
+                
+                if maint.interval_days:
+                    due_date = datetime.now(timezone.utc) + timedelta(days=maint.interval_days)
+                elif maint.interval_hours and machine.hour_counter:
+                    # Convert hours to estimated days based on average usage
+                    # Assuming 8 hours of operation per day
+                    estimated_days = maint.interval_hours / 8
+                    due_date = datetime.now(timezone.utc) + timedelta(days=estimated_days)
+                
+                # Build work order title and description
+                title = f"{maint.title or 'Maintenance'} - {function.name}"
+                
+                description = f"RCM-based maintenance action\n\n"
+                description += f"Unit: {unit.name}\n"
+                description += f"Function: {function.name}\n"
+                description += f"Functional Failure: {failure.name}\n"
+                description += f"Failure Mode: {mode.name}\n"
+                description += f"Action: {maint.description or maint.title}\n"
+                
+                # Check if a similar work order already exists and is still open
+                existing_order = WorkOrder.query.filter(
+                    WorkOrder.machine_id == equipment_id,
+                    WorkOrder.title == title,
+                    WorkOrder.status.in_(['open', 'in_progress']),
+                    WorkOrder.generation_source == 'rcm'
+                ).first()
+                
+                if not existing_order:
+                    # Determine priority based on interval
+                    priority = 'normal'
+                    if maint.interval_days and maint.interval_days <= 7:
+                        priority = 'high'
+                    elif maint.interval_days and maint.interval_days <= 3:
+                        priority = 'critical'
+                    
+                    # Create the work order
+                    work_order = WorkOrder(
+                        title=title,
+                        description=description,
+                        due_date=due_date,
+                        status='open',
+                        priority=priority,
+                        type=work_order_type,
+                        frequency='periodic',
+                        category='rcm_maintenance',
+                        machine_id=equipment_id,
+                        subsystem_id=None,  # Could be enhanced to link to subsystem
+                        component_id=function.component_id,  # Link to component if available
+                        reason=f"RCM maintenance for: {mode.name}",
+                        generation_source='rcm',
+                        tool_requirements=''
+                    )
+                    
+                    db.session.add(work_order)
+                    created_work_orders.append(work_order)
+                    
+                    logger.info(f"Created work order: {title}")
+                else:
+                    logger.info(f"Work order already exists for: {title}")
+                    
+            except Exception as e:
+                logger.error(f"Error creating work order for maintenance action {maint.id}: {str(e)}")
+                continue
         
         if created_work_orders:
             db.session.commit()
+            logger.info(f"Successfully created {len(created_work_orders)} work orders")
+        else:
+            logger.info("No new work orders created")
         
         return created_work_orders
     """"
