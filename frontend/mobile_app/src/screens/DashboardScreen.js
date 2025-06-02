@@ -1,3 +1,4 @@
+// DashboardScreen.js
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, StatusBar, Platform, Dimensions } from 'react-native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
@@ -13,13 +14,11 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 export default function DashboardScreen({ navigation }) {
   const [selectedMachine, setSelectedMachine] = useState(null);
   const [lastUpdateTime, setLastUpdateTime] = useState(null);
-  const [testMode, setTestMode] = useState(false);
   
   useEffect(() => {
     // Subscribe to navigation focus events to reload data when screen comes into focus
     const unsubscribe = navigation.addListener('focus', () => {
       loadSelectedMachine();
-      checkTestMode();
     });
     
     return unsubscribe;
@@ -42,15 +41,6 @@ export default function DashboardScreen({ navigation }) {
     }
   };
 
-  const checkTestMode = async () => {
-    try {
-      const testModeStr = await AsyncStorage.getItem('testMode');
-      setTestMode(testModeStr === 'true');
-    } catch (error) {
-      console.error('Error checking test mode:', error);
-    }
-  };
-  
   const formatLastUpdate = () => {
     if (!lastUpdateTime) return 'Not updated';
     
@@ -78,11 +68,6 @@ export default function DashboardScreen({ navigation }) {
           <View style={styles.machineInfoContainer}>
             <View style={styles.machineNameRow}>
               <Text style={styles.machineName}>{selectedMachine.name}</Text>
-              {testMode && (
-                <View style={styles.testModeBadge}>
-                  <Text style={styles.testModeText}>Test Mode</Text>
-                </View>
-              )}
             </View>
             <View style={styles.machineDetailsRow}>
               <Text style={styles.machineDetails}>
@@ -191,15 +176,6 @@ export default function DashboardScreen({ navigation }) {
             <Text style={styles.noMachineDescription}>
               Please select a machine to view maintenance tasks and report issues.
             </Text>
-            
-            {testMode && (
-              <View style={styles.testModeInfoContainer}>
-                <MaterialIcons name="info" size={14} color="#5D6271" />
-                <Text style={styles.testModeInfo}>
-                  Test Mode is active. You can select machines without scanning QR codes.
-                </Text>
-              </View>
-            )}
           </View>
         )}
       </View>
@@ -325,29 +301,5 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     marginBottom: 16,
-  },
-  testModeBadge: {
-    backgroundColor: '#5D6271',
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 4,
-  },
-  testModeText: {
-    color: 'white',
-    fontSize: 10,
-    fontWeight: '500',
-  },
-  testModeInfoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E6F7FF',
-    padding: 8,
-    borderRadius: 4,
-    marginTop: 8,
-  },
-  testModeInfo: {
-    marginLeft: 4,
-    fontSize: 12,
-    color: '#0066CC',
   },
 });

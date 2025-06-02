@@ -10,7 +10,7 @@ import {
   Alert,
   ActivityIndicator
 } from 'react-native';
-import { Checkbox, ProgressBar } from 'react-native-paper';
+import { Checkbox } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchWorkOrders, completeWorkOrder } from '../services/api';
@@ -21,7 +21,7 @@ export default function PeriodicMaintenanceScreen({ navigation }) {
   const [selectedWorkOrder, setSelectedWorkOrder] = useState(null);
   const [infoModalVisible, setInfoModalVisible] = useState(false);
   const [selectedMachine, setSelectedMachine] = useState(null);
-  const [completingOrder, setCompletingOrder] = useState(false);
+  const [completingOrder, setCompletingOrder] = useState(null);
 
   useEffect(() => {
     loadSelectedMachine();

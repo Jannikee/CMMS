@@ -1,50 +1,12 @@
 // services/api.js
 // frontend/mobile_app/src/services/api.js
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { 
-  mockLogin,
-  getMockWorkOrders,
-  getMockWorkOrderById,
-  getMockMachineById,
-  updateMockMachineHours,
-  updateMockWorkOrderStatus,
-  getMockSubsystemsForMachine
-} from './mockDataService';
 
 const API_URL = 'http://192.168.10.116:5000/api';
 
-/**
- * Check if test mode is enabled
- */
-const isTestModeEnabled = async () => {
-  try {
-    const testMode = await AsyncStorage.getItem('testMode');
-    return testMode === 'true';
-  } catch (error) {
-    console.error('Error checking test mode:', error);
-    return false;
-  }
-};
-//test login
+// User authentication
 export async function login(username, password) {
   try {
-    // Check if we're in test mode
-    const testMode = await isTestModeEnabled();
-    
-    if (testMode) {
-      // Use mock login for testing
-      const mockResponse = mockLogin(username, password);
-      
-      // Store the mock token
-      await AsyncStorage.setItem('userToken', mockResponse.access_token);
-      await AsyncStorage.setItem('testUser', JSON.stringify({
-        username: mockResponse.username,
-        role: mockResponse.role
-      }));
-      
-      return mockResponse;
-    }
-    
     // Real API call for non-test mode
     const response = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
@@ -71,50 +33,12 @@ export async function login(username, password) {
     throw error;
   }
 }
-/* test login
-// User authentication
-export async function login(username, password) {
-  try {
-    // We'll still use the real API for login even in test mode
-    const response = await fetch(`${API_URL}/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        username,
-        password,
-      }),
-    });
 
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || 'Login failed');
-    }
-    
-    // Store the token
-    await AsyncStorage.setItem('userToken', data.access_token);
-    return data;
-  } catch (error) {
-    console.error('Login error:', error);
-    throw error;
-  }
-}
-*/
 /**
  * Work order functions
  */
 export async function fetchWorkOrders(token, type = 'daily', machineId = null) {
   try {
-    // Check if we're in test mode
-    const testMode = await isTestModeEnabled();
-    
-    if (testMode) {
-      // Return mock data
-      return getMockWorkOrders(type, machineId);
-    }
-    
     // Real API call
     let url = `${API_URL}/work-orders?type=${type}`;
     if (machineId) {
@@ -142,14 +66,6 @@ export async function fetchWorkOrders(token, type = 'daily', machineId = null) {
 
 export async function fetchWorkOrderDetail(token, workOrderId) {
   try {
-    // Check if we're in test mode
-    const testMode = await isTestModeEnabled();
-    
-    if (testMode) {
-      // Return mock data
-      return getMockWorkOrderById(workOrderId);
-    }
-    
     // Real API call
     const response = await fetch(`${API_URL}/work-orders/${workOrderId}`, {
       headers: {
@@ -172,14 +88,6 @@ export async function fetchWorkOrderDetail(token, workOrderId) {
 
 export async function completeWorkOrder(token, workOrderId, notes = "") {
   try {
-    // Check if we're in test mode
-    const testMode = await isTestModeEnabled();
-    
-    if (testMode) {
-      // Update mock data
-      return updateMockWorkOrderStatus(workOrderId, 'completed');
-    }
-    
     // Real API call
     const response = await fetch(`${API_URL}/work-orders/${workOrderId}`, {
       method: 'PUT',
@@ -211,14 +119,6 @@ export async function completeWorkOrder(token, workOrderId, notes = "") {
  */
 export async function fetchMachine(token, machineId) {
   try {
-    // Check if we're in test mode
-    const testMode = await isTestModeEnabled();
-    
-    if (testMode) {
-      // Return mock data
-      return getMockMachineById(machineId);
-    }
-    
     // Real API call
     const response = await fetch(`${API_URL}/machines/${machineId}`, {
       headers: {
@@ -241,14 +141,6 @@ export async function fetchMachine(token, machineId) {
 
 export async function updateMachineHours(token, machineId, hours) {
   try {
-    // Check if we're in test mode
-    const testMode = await isTestModeEnabled();
-    
-    if (testMode) {
-      // Update mock data
-      return updateMockMachineHours(machineId, hours);
-    }
-    
     // Real API call
     const response = await fetch(`${API_URL}/machines/${machineId}/hours`, {
       method: 'PUT',
@@ -276,14 +168,6 @@ export async function updateMachineHours(token, machineId, hours) {
 
 export async function fetchSubsystems(token, machineId) {
   try {
-    // Check if we're in test mode
-    const testMode = await isTestModeEnabled();
-    
-    if (testMode) {
-      // Return mock data
-      return getMockSubsystemsForMachine(machineId);
-    }
-    
     // Real API call
     const response = await fetch(`${API_URL}/machines/${machineId}/subsystems`, {
       headers: {
@@ -305,18 +189,214 @@ export async function fetchSubsystems(token, machineId) {
 }
 
 /**
+ * RCM Functions
+ */
+export async function fetchRCMFunctions(token, subsystemId) {
+  try {
+    // First, let's get the subsystem details to understand its structure
+    const subsystemResponse = await fetch(`${API_URL}/machines/subsystems/${subsystemId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    
+    const subsystemData = await subsystemResponse.json();
+    
+    if (!subsystemResponse.ok) {
+      throw new Error('Failed to fetch subsystem details');
+    }
+    
+    const subsystem = subsystemData.subsystem;
+    const machineId = subsystem.machine_id;
+    const technicalId = subsystem.technical_id;
+    
+    // Now get the complete RCM analysis
+    const response = await fetch(`${API_URL}/rcm/analysis?equipment_id=${machineId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch RCM analysis');
+    }
+    
+    // Process the RCM data to find relevant functions
+    // First, look for any RCM unit that matches or contains our subsystem's technical ID
+    const relevantFunctions = [];
+    
+    if (data.rcm_analysis && Array.isArray(data.rcm_analysis)) {
+      // Look for matching units based on technical ID patterns
+      data.rcm_analysis.forEach(unit => {
+        // Check if this unit corresponds to our subsystem or is related to it
+        const isRelevantUnit = 
+          // Direct match on technical ID
+          (unit.technical_id === technicalId) || 
+          // Or unit is part of the same hierarchical path (based on technical ID prefix)
+          (technicalId.startsWith(unit.technical_id)) ||
+          // Or unit might be a child of this subsystem
+          (unit.technical_id && unit.technical_id.startsWith(technicalId));
+        
+        if (isRelevantUnit && unit.functions && Array.isArray(unit.functions)) {
+          unit.functions.forEach(func => {
+            // Add the function with its unit context
+            relevantFunctions.push({
+              ...func,
+              unit_id: unit.id,
+              unit_name: unit.name
+            });
+          });
+        }
+      });
+    }
+    
+    // If we didn't find any relevant functions, return all functions as a fallback
+    if (relevantFunctions.length === 0 && data.rcm_analysis) {
+      data.rcm_analysis.forEach(unit => {
+        if (unit.functions && Array.isArray(unit.functions)) {
+          unit.functions.forEach(func => {
+            relevantFunctions.push({
+              ...func,
+              unit_id: unit.id,
+              unit_name: unit.name
+            });
+          });
+        }
+      });
+    }
+    
+    return relevantFunctions;
+  } catch (error) {
+    console.error('Fetch RCM functions error:', error);
+    throw error;
+  }
+}
+
+export async function fetchComponents(token, subsystemId) {
+  try {
+    const response = await fetch(`${API_URL}/machines/subsystems/${subsystemId}/components`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch components');
+    }
+    
+    return data.components;
+  } catch (error) {
+    console.error('Fetch components error:', error);
+    throw error;
+  }
+}
+
+export async function fetchRCMAnalysis(token, machineId) {
+  try {
+    let url = `${API_URL}/rcm/analysis`;
+    if (machineId) {
+      url += `?equipment_id=${machineId}`;
+    }
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch RCM analysis');
+    }
+    
+    return data.rcm_analysis;
+  } catch (error) {
+    console.error('Fetch RCM analysis error:', error);
+    throw error;
+  }
+}
+
+// Added function to find the right RCM unit for a given technical ID
+export async function findRCMUnitForTechnicalId(token, technicalId) {
+  try {
+    // Get the complete RCM analysis
+    const rcmAnalysis = await fetchRCMAnalysis(token);
+    
+    if (!rcmAnalysis || !Array.isArray(rcmAnalysis)) {
+      throw new Error('Invalid RCM analysis data');
+    }
+    
+    // Try to find a unit with matching or related technical ID
+    const matchingUnit = rcmAnalysis.find(unit => 
+      unit.technical_id === technicalId || 
+      (unit.technical_id && technicalId.startsWith(unit.technical_id)) ||
+      (unit.technical_id && unit.technical_id.startsWith(technicalId))
+    );
+    
+    if (matchingUnit) {
+      return matchingUnit;
+    }
+    
+    // If no direct match found, try to determine the level from technical ID pattern
+    const parts = technicalId.split('.');
+    
+    if (parts.length === 1) {
+      // Machine level - try to find a unit for this machine
+      return rcmAnalysis.find(unit => unit.equipment_id === parseInt(technicalId));
+    } else if (parts.length === 2) {
+      // Subsystem level - try to find a unit that could contain this subsystem
+      const machineId = parts[0];
+      const possibleUnits = rcmAnalysis.filter(unit => 
+        unit.equipment_id === parseInt(machineId) || 
+        (unit.technical_id && unit.technical_id.startsWith(machineId))
+      );
+      return possibleUnits[0] || null;
+    } 
+    
+    // If still not found, return the first unit as a fallback
+    return rcmAnalysis[0] || null;
+  } catch (error) {
+    console.error('Error finding RCM unit:', error);
+    return null;
+  }
+}
+
+export async function fetchRecentMaintenanceLogs(token, limit = 5, machineId = null) {
+  try {
+    let url = `${API_URL}/maintenance?limit=${limit}`;
+    if (machineId) {
+      url += `&machine_id=${machineId}`;
+    }
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch maintenance logs');
+    }
+    
+    return data.maintenance_logs;
+  } catch (error) {
+    console.error('Fetch maintenance logs error:', error);
+    throw error;
+  }
+}
+
+/**
  * Reporting functions
  */
 export async function reportDeviation(token, reportData, images = []) {
   try {
-    // Check if we're in test mode
-    const testMode = await isTestModeEnabled();
-    
-    if (testMode) {
-      // Just return a successful response in test mode
-      return { success: true, message: "Deviation reported successfully (Test Mode)" };
-    }
-    
     // Real API call
     // If no images, use JSON content type
     if (images.length === 0) {
@@ -393,7 +473,6 @@ export async function reportDeviation(token, reportData, images = []) {
  */
 export async function scanQRCode(token, qrData) {
   try {
-    // Test mode will still use real API for QR scanning, as it's not critical for testing
     const response = await fetch(`${API_URL}/machines/qrcode/${qrData}`, {
       headers: {
         'Authorization': `Bearer ${token}`,

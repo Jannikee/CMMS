@@ -31,7 +31,7 @@ class IntervalOptimizationService:
     MAX_INTERVAL_DECREASE = 0.30  # Max 30% decrease at once
     
     # Absolute limits for intervals (in hours or days)
-    MIN_HOUR_INTERVAL = 10  # Don't set intervals below 10 hours
+    MIN_HOUR_INTERVAL = 8  # Don't set intervals below 10 hours
     MAX_HOUR_INTERVAL = 10000  # Don't set intervals above 10000 hours
     MIN_DAY_INTERVAL = 1  # Don't set intervals below 1 day
     MAX_DAY_INTERVAL = 365  # Don't set intervals above 1 year
