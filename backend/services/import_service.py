@@ -97,20 +97,38 @@ class RCMImportService:
             # Try to identify columns
             for col in df.columns:
                 col_lower = col.lower()
-                if 'enhet' in col_lower or 'unit' in col_lower:
+                
+                # Check for exact matches first
+                if col_lower == 'enhet':
                     column_map['unit'] = col
-                elif 'funksjon' in col_lower and 'feil' not in col_lower:
+                elif col_lower == 'funksjon':
                     column_map['function'] = col
-                elif 'funksjonsfeil' in col_lower or 'functional' in col_lower:
+                elif col_lower == 'funksjonsfeil':
                     column_map['failure'] = col
-                elif 'svikt' in col_lower or 'mode' in col_lower:
+                elif col_lower == 'sviktmode':
                     column_map['mode'] = col
-                elif 'effekt' in col_lower or 'effect' in col_lower or 'konsekvens' in col_lower:
+                elif col_lower == 'effekt':
                     column_map['effect'] = col
-                elif 'mtf' in col_lower or 'intervall' in col_lower or 'timer' in col_lower:
+                elif col_lower == 'intervall':
                     column_map['interval'] = col
-                elif 'strategi' in col_lower or 'strategy' in col_lower:
+                elif col_lower == 'svikthåndteringsstrategi':
                     column_map['strategy'] = col
+                else:
+                    # Fall back to partial matches if exact match not found
+                    if 'enhet' in col_lower or 'unit' in col_lower:
+                        column_map['unit'] = column_map['unit'] or col
+                    elif 'funksjon' in col_lower and 'feil' not in col_lower:
+                        column_map['function'] = column_map['function'] or col
+                    elif 'funksjonsfeil' in col_lower:
+                        column_map['failure'] = column_map['failure'] or col
+                    elif 'sviktmode' in col_lower and 'håndtering' not in col_lower:
+                        column_map['mode'] = column_map['mode'] or col
+                    elif 'effekt' in col_lower:
+                        column_map['effect'] = column_map['effect'] or col
+                    elif 'timer' in col_lower or 'mtf' in col_lower:
+                        column_map['interval'] = column_map['interval'] or col
+                    elif ('strategi' in col_lower or 'håndtering' in col_lower) and 'mode' not in col_lower:
+                        column_map['strategy'] = column_map['strategy'] or col
             
             logger.info(f"Column mapping: {column_map}")
             
@@ -278,7 +296,7 @@ class RCMImportService:
                             if strategy_val and not pd.isna(strategy_val) and str(strategy_val).strip():
                                 has_maintenance = True
                                 maintenance_desc = str(strategy_val).strip()
-                                maintenance_title = f"{maintenance_desc} - {mode_str[:50]}"  # Limit title length
+                                maintenance_title = maintenance_desc
                                 logger.info(f"Found strategy: {maintenance_desc}")
                             
                             # Get interval value

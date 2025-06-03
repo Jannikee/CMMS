@@ -5,7 +5,10 @@ from backend.models.machine import Machine, Component
 from backend.models.work_order import WorkOrder
 from backend.models.rcm import RCMUnit, RCMFunction ,RCMFunctionalFailure, RCMMaintenance , RCMFailureEffect
 from backend.database import db
+import logging
 from datetime import datetime, timedelta, timezone
+
+logger = logging.getLogger(__name__)
 
 class WorkOrderGenerator:
     @staticmethod
@@ -213,7 +216,7 @@ class WorkOrderGenerator:
     @staticmethod
     def generate_from_rcm(equipment_id):
         """Generate work orders based on RCM analysis"""
-        from backend.models.machine import Machine
+        from backend.models.machine import Machine, Subsystem, Component
         from backend.models.work_order import WorkOrder
         from backend.models.rcm import RCMMaintenance, RCMFailureMode, RCMFunctionalFailure, RCMFunction, RCMUnit
         from datetime import datetime, timedelta, timezone
@@ -250,6 +253,24 @@ class WorkOrderGenerator:
         
         for maint, mode, failure, function, unit in maintenance_actions:
             try:
+            # Determine subsystem based on unit technical_id
+                subsystem_id = None
+                component_id = None
+                
+                # Parse the unit technical_id to determine hierarchy level
+                if unit.technical_id:
+                    parts = unit.technical_id.split('.')
+                    if len(parts) == 2:  # This is a subsystem (e.g., "1077.01")
+                        # Find the subsystem with this technical_id
+                        subsystem = Subsystem.query.filter_by(technical_id=unit.technical_id).first()
+                        if subsystem:
+                            subsystem_id = subsystem.id
+                    elif len(parts) == 3:  # This is a component (e.g., "1077.01.001")
+                        # Find the component with this technical_id
+                        component = Component.query.filter_by(technical_id=unit.technical_id).first()
+                        if component:
+                            component_id = component.id
+                            subsystem_id = component.subsystem_id
                 # Determine work order type based on maintenance type
                 work_order_type = 'preventive'
                 if maint.maintenance_type:
@@ -273,7 +294,7 @@ class WorkOrderGenerator:
                 title = f"{maint.title or 'Maintenance'} - {function.name}"
                 
                 description = f"RCM-based maintenance action\n\n"
-                description += f"Unit: {unit.name}\n"
+                description += f"Unit: {unit.name} ({unit.technical_id})\n"
                 description += f"Function: {function.name}\n"
                 description += f"Functional Failure: {failure.name}\n"
                 description += f"Failure Mode: {mode.name}\n"
@@ -306,8 +327,8 @@ class WorkOrderGenerator:
                         frequency='periodic',
                         category='rcm_maintenance',
                         machine_id=equipment_id,
-                        subsystem_id=None,  # Could be enhanced to link to subsystem
-                        component_id=function.component_id,  # Link to component if available
+                        subsystem_id=subsystem_id,  # Now properly linked based on technical_id
+                        component_id=component_id, 
                         reason=f"RCM maintenance for: {mode.name}",
                         generation_source='rcm',
                         tool_requirements=''
@@ -316,7 +337,7 @@ class WorkOrderGenerator:
                     db.session.add(work_order)
                     created_work_orders.append(work_order)
                     
-                    logger.info(f"Created work order: {title}")
+                    logger.info(f"Created work order: {title} (subsystem_id: {subsystem_id}, component_id: {component_id})")
                 else:
                     logger.info(f"Work order already exists for: {title}")
                     

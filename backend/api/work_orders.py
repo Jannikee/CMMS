@@ -44,7 +44,7 @@ def get_work_orders():
     result = []
     for wo in work_orders:
         machine = Machine.query.get(wo.machine_id)
-        subsystem = Subsystem.query.get(wo.subsystem) if wo.subsystem_id else None
+        subsystem = Subsystem.query.get(wo.subsystem_id) if wo.subsystem_id else None
         component = Component.query.get(wo.component_id) if wo.component_id else None
         assigned_user = User.query.get(wo.assigned_to) if wo.assigned_to else None          #Might not be needed
         
